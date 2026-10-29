@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>poly15</title>
+<style>
+  /* Layout: fixed header with tabs, one scrolling panel beneath.
+     Palette: cool slate neutrals, semantic green/red for up/down (the only
+     place color carries meaning), amber reserved for actions. */
+  :root{
+    --bg:#f7f8f9; --panel:#ffffff; --sunk:#eef1f3;
+    --ink:#11161a; --ink-2:#5c676f; --ink-3:#8b959c;
+    --line:#dfe4e8; --line-2:#c9d1d7;
+    --up:#0f7a52; --up-soft:#d9efe5;
+    --down:#b32d3a; --down-soft:#fae0e2;
+    --accent:#b4680f; --accent-soft:#f6e8d4;
+    --warn:#8a6d1f;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0e1316; --panel:#161d21; --sunk:#111719;
+    --ink:#e8edf0; --ink-2:#9aa7af; --ink-3:#6d7a82;
+    --line:#242e34; --line-2:#334048;
+    --up:#3fbd88; --up-soft:#15321f;
+    --down:#e5737d; --down-soft:#331a1d;
+    --accent:#e0a14f; --accent-soft:#2e2316;
+    --warn:#d4b25e;
+    color-scheme:dark;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0e1316; --panel:#161d21; --sunk:#111719;
+    --ink:#e8edf0; --ink-2:#9aa7af; --ink-3:#6d7a82;
+    --line:#242e34; --line-2:#334048;
+    --up:#3fbd88; --up-soft:#15321f;
+    --down:#e5737d; --down-soft:#331a1d;
+    --accent:#e0a14f; --accent-soft:#2e2316;
+    --warn:#d4b25e;
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 var(--sans);
+    display:flex; flex-direction:column; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+  header{
+    flex:none; background:var(--panel); border-bottom:1px solid var(--line);
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:10px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    -webkit-app-region:drag; user-select:none;
+  }
+  .brand{display:flex; align-items:center; gap:8px; font-weight:650; letter-spacing:-.01em}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--up);flex:none}
+  .dot.off{background:var(--ink-3)}
+  .hdr-stat{margin-left:auto; display:flex; gap:16px; font-size:12px; color:var(--ink-2)}
+  .hdr-stat b{color:var(--ink); font-weight:600}
+
+  nav{
+    flex:none; background:var(--panel); border-bottom:1px solid var(--line);
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    display:flex; gap:2px; overflow-x:auto;
+  }
+  nav button{
+    -webkit-app-region:no-drag;
+    font:inherit; font-size:13px; font-weight:550; color:var(--ink-2);
+    background:none; border:none; border-bottom:2px solid transparent;
+    padding:10px 14px; cursor:pointer; white-space:nowrap;
+  }
+  nav button:hover{color:var(--ink)}
+  nav button[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--accent)}
+  nav button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+
+  main{
+    flex:1; overflow-y:auto;
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:16px 40px;
+  }
+  .wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
+  .card h2{margin:0 0 2px; font-size:13px; font-weight:650; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-2)}
+  .card .sub{margin:0 0 12px; font-size:12px; color:var(--ink-3)}
+
+  .rounds{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+  .round{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; min-width:0}
+  .round .top{display:flex; align-items:baseline; gap:8px; margin-bottom:10px}
+  .round .h{font-weight:650; font-size:15px}
+  .round .cd{margin-left:auto; font-family:var(--mono); font-size:13px; color:var(--ink-2)}
+  .bar{height:6px; border-radius:3px; background:var(--sunk); overflow:hidden; margin:10px 0 12px}
+  .bar i{display:block; height:100%; background:var(--accent); transition:width .4s linear}
+  .kv{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px}
+  .kv dt{color:var(--ink-2)}
+  .kv dd{margin:0; text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+  .lean{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px}
+  .lean .track{flex:1; height:22px; border-radius:5px; background:var(--sunk); position:relative; overflow:hidden}
+  .lean .fill{position:absolute; inset:0 auto 0 0; background:var(--up-soft)}
+  .lean .mid{position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--line-2)}
+  .lean .pct{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:12px; font-weight:600}
+
+  canvas{display:block; width:100%; height:300px; border-radius:6px; background:var(--sunk)}
+
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th,td{text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); font-weight:600}
+  tbody tr:last-child td{border-bottom:none}
+  td.n{font-family:var(--mono); font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto; margin:0 -16px; padding:0 16px}
+
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; letter-spacing:.02em}
+  .pill.pos{background:var(--up-soft); color:var(--up)}
+  .pill.neg{background:var(--down-soft); color:var(--down)}
+  .pill.mut{background:var(--sunk); color:var(--ink-3)}
+  .pill.warn{background:var(--accent-soft); color:var(--warn)}
+  .up{color:var(--up)} .dn{color:var(--down)}
+
+  .big{display:flex; gap:28px; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px}
+  .big .v{font-family:var(--mono); font-size:30px; font-weight:600; letter-spacing:-.02em; line-height:1.1}
+  .big .l{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); margin-bottom:3px}
+
+  .gate{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line)}
+  .gate:last-child{border-bottom:none}
+  .gate .mark{width:20px; height:20px; border-radius:50%; flex:none; display:grid; place-items:center;
+    font-size:11px; font-weight:700; background:var(--sunk); color:var(--ink-3)}
+  .gate .mark.on{background:var(--up-soft); color:var(--up)}
+  .gate .t{font-weight:600; font-size:13px}
+  .gate .d{font-size:12px; color:var(--ink-2); margin-top:1px}
+
+  .row{display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .row:last-child{border-bottom:none}
+  .row .lab{flex:1; min-width:180px}
+  .row .lab b{display:block; font-size:13px; font-weight:600}
+  .row .lab span{font-size:12px; color:var(--ink-2)}
+  input[type=number]{
+    font:inherit; font-family:var(--mono); width:110px; padding:7px 9px;
+    border:1px solid var(--line-2); border-radius:7px; background:var(--bg); color:var(--ink);
+  }
+  input:focus-visible{outline:2px solid var(--accent); outline-offset:-1px}
+  button.act{
+    -webkit-app-region:no-drag;
+    font:inherit; font-size:13px; font-weight:600; padding:8px 15px; border-radius:7px;
+    border:1px solid var(--line-2); background:var(--panel); color:var(--ink); cursor:pointer;
+  }
+  button.act:hover{border-color:var(--ink-3)}
+  button.act.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.act.primary:hover{filter:brightness(1.07)}
+  .seg{display:flex; gap:0; border:1px solid var(--line-2); border-radius:7px; overflow:hidden}
+  .seg button{font:inherit; font-size:12px; font-weight:600; padding:7px 13px; border:none;
+    background:var(--panel); color:var(--ink-2); cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--accent); color:#fff}
+
+  .empty{color:var(--ink-2); font-size:13px; padding:8px 0}
+  .note{font-size:12px; color:var(--ink-2); margin-top:10px; line-height:1.55}
+  .locked{text-align:center; padding:26px 16px}
+  .locked .ic{font-size:26px; margin-bottom:6px}
+  .locked h3{margin:0 0 6px; font-size:16px}
+  .locked p{margin:0 auto; max-width:46ch; color:var(--ink-2); font-size:13px}
+  .err{background:var(--down-soft); color:var(--down); padding:9px 12px; border-radius:7px; font-size:12px}
+
+  @media (max-width:560px){
+    .hdr-stat{width:100%; margin-left:0; justify-content:space-between}
+    .big{gap:18px} .big .v{font-size:24px}
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important; animation:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand"><span class="dot" id="dot"></span>poly15</span>
+  <div class="hdr-stat">
+    <span>rounds <b id="s-rounds">—</b></span>
+    <span>bets <b id="s-bets">—</b></span>
+    <span>trained <b id="s-trained">—</b></span>
+    <span>win <b id="s-wr">—</b></span>
+  </div>
+</header>
+
+<nav id="tabs" role="tablist">
+  <button role="tab" data-tab="dash" aria-selected="true">Dashboard</button>
+  <button role="tab" data-tab="paper" aria-selected="false">Paper</button>
+  <button role="tab" data-tab="learn" aria-selected="false">Model</button>
+  <button role="tab" data-tab="live" aria-selected="false">Live</button>
+  <button role="tab" data-tab="set" aria-selected="false">Settings</button>
+</nav>
+
+<main>
+  <!-- DASHBOARD -->
+  <section class="wrap" id="p-dash">
+    <div id="err-box"></div>
+    <div class="rounds" id="live-rounds"></div>
+    <div class="card">
+      <h2>Bets riding now</h2>
+      <p class="sub" id="ob-sub">Placed about 60 seconds before each round closes, settled when it does.</p>
+      <div class="scroll"><table id="ob-table"><thead><tr>
+        <th>round</th><th>min</th><th>strategy</th><th>pick</th><th>price</th><th>to win</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Bitcoin</h2>
+      <p class="sub" id="chart-sub">1-minute candles · dashed line is the current round's opening price</p>
+      <canvas id="chart" width="900" height="300"></canvas>
+    </div>
+  </section>
+
+  <!-- PAPER -->
+  <section class="wrap" id="p-paper" hidden>
+    <div class="card">
+      <h2>Paper trading</h2>
+      <p class="sub">Fake money. No orders are ever placed.</p>
+      <div class="big">
+        <div><div class="l">Balance</div><div class="v" id="pp-pnl">—</div></div>
+        <div><div class="l">Win rate</div><div class="v" id="pp-wr">—</div></div>
+        <div><div class="l">Needed to break even</div><div class="v" id="pp-need">—</div></div>
+        <div><div class="l">Bets settled</div><div class="v" id="pp-n">—</div></div>
+        <div><div class="l">Stake per bet</div><div class="v" id="pp-stake">—</div></div>
+      </div>
+      <p class="note" id="pp-overall"></p>
+    </div>
+    <div class="card">
+      <h2>Open bets</h2>
+      <p class="sub">Waiting on a result. These are not in the balance above yet.</p>
+      <div class="scroll"><table id="pp-open"><thead><tr>
+        <th>round</th><th>min</th><th>strategy</th><th>pick</th><th>price</th><th>to win</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>By strategy</h2>
+      <p class="sub">"needed" is the win rate each one had to hit just to break even on the prices it actually paid.</p>
+      <div class="scroll"><table id="pp-table"><thead><tr>
+        <th>strategy</th><th>bets</th><th>win%</th><th>needed</th><th>net</th><th>verdict</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="note" id="pp-note"></p>
+    </div>
+    <div class="card">
+      <h2>Recent rounds</h2>
+      <p class="sub">What it picked, and how that turned out.</p>
+      <div class="scroll"><table id="pp-recent"><thead><tr>
+        <th>round</th><th>min</th><th>result</th><th>bets</th><th>net</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- MODEL -->
+  <section class="wrap" id="p-learn" hidden>
+    <div class="card">
+      <h2>Gate 1 · beats the market</h2>
+      <p class="sub">The price is itself a prediction. If the model can't out-predict it, nothing else matters.</p>
+      <div class="big">
+        <div><div class="l">Model error</div><div class="v" id="ml-lm">—</div></div>
+        <div><div class="l">Market error</div><div class="v" id="ml-lk">—</div></div>
+        <div><div class="l">Verdict</div><div class="v" id="ml-vd" style="font-size:18px">—</div></div>
+      </div>
+      <p class="note">Lower error is a better forecast. The model has to be clearly below the market, not just a hair.</p>
+    </div>
+    <div class="card">
+      <h2>The three gates</h2>
+      <div id="ml-gates"></div>
+    </div>
+    <div class="card">
+      <h2>Calibration</h2>
+      <p class="sub">When it says 70%, does it win 70%?</p>
+      <div class="scroll"><table id="ml-cal"><thead><tr>
+        <th>confidence</th><th>calls</th><th>claimed</th><th>actual</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>What it has learned</h2>
+      <p class="sub">An adjustment to the market price. All zeros means it has found nothing, which is the honest starting state.</p>
+      <div class="scroll"><table id="ml-w"><thead><tr><th>input</th><th>weight</th></tr></thead><tbody></tbody></table></div>
+      <p class="note" id="ml-note"></p>
+    </div>
+  </section>
+
+  <!-- LIVE -->
+  <section class="wrap" id="p-live" hidden>
+    <div class="card locked">
+      <div class="ic">&#128274;</div>
+      <h3>Real money is locked</h3>
+      <p>It unlocks when the paper results earn it. Until then this stays shut, and that is the point of the exercise.</p>
+    </div>
+    <div class="card">
+      <h2>What has to be true first</h2>
+      <div id="lv-gates"></div>
+      <p class="note">Even with all three passed, going live means putting your own credentials on this machine. That is a separate decision, and a real one.</p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="wrap" id="p-set" hidden>
+    <div class="card">
+      <h2>Recording</h2>
+      <div class="row">
+        <div class="lab"><b>Collect data and place paper bets</b><span id="st-recstate">—</span></div>
+        <div class="seg"><button id="st-on" aria-pressed="false">On</button><button id="st-off" aria-pressed="false">Off</button></div>
+      </div>
+      <div class="row">
+        <div class="lab"><b>Stop betting after</b><span>0 means never stop. Recording continues either way, because data is free and gaps are not.</span></div>
+        <input type="number" id="st-stop" min="0" step="50" value="0">
+      </div>
+      <div class="row">
+        <div class="lab"><b>Stake per bet</b><span>Fake dollars risked on each round. Flat, so one lucky round can't look like skill.</span></div>
+        <input type="number" id="st-stake" min="1" step="1" value="10">
+      </div>
+      <div class="row">
+        <div class="lab"><b>Place bets this many seconds before close</b><span>Later means more information and a worse price.</span></div>
+        <input type="number" id="st-entry" min="10" max="600" step="5" value="60">
+      </div>
+      <div class="row">
+        <div class="lab"><b>Horizons</b><span>5-minute rounds give three times the data. 15-minute rounds give better prices.</span></div>
+        <div class="seg">
+          <button id="st-h15" aria-pressed="false">15 min</button>
+          <button id="st-h5" aria-pressed="false">5 min</button>
+          <button id="st-hb" aria-pressed="false">Both</button>
+        </div>
+      </div>
+      <div class="row" style="border:none">
+        <div class="lab"></div>
+        <button class="act primary" id="st-save">Save</button>
+      </div>
+      <p class="note" id="st-msg"></p>
+    </div>
+    <div class="card">
+      <h2>Where the data lives</h2>
+      <p class="note">
+        Recordings are written to <span class="num">~/Library/Application&nbsp;Support/Poly15/data</span>, outside the app,
+        so rebuilding it never erases what you've collected. Plain text, one line per snapshot.
+      </p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = (v, d = 2) => (v == null || !isFinite(v) ? '—' : Number(v).toFixed(d));
+const money = (v) => (v == null || !isFinite(v) ? '—' : (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(2));
+const pct = (v, d = 1) => (v == null || !isFinite(v) ? '—' : (100 * v).toFixed(d) + '%');
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+let tab = 'dash';
+$('#tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  tab = b.dataset.tab;
+  for (const x of document.querySelectorAll('#tabs button')) x.setAttribute('aria-selected', String(x === b));
+  for (const id of ['dash', 'paper', 'learn', 'live', 'set']) $('#p-' + id).hidden = (id !== tab);
+  refresh();
+});
+
+async function get(p) { const r = await fetch(p); if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); }
+
+// ---------- dashboard ----------
+const endAt = {};          // horizon -> absolute ms when the round closes
+const roundLen = {};       // horizon -> round length in seconds
+
+function renderRounds(d) {
+  $('#dot').className = 'dot' + (d.recording ? '' : ' off');
+  $('#s-rounds').textContent = d.counts.rounds;
+  $('#s-bets').textContent = d.counts.scored;
+  $('#s-trained').textContent = d.counts.trained;
+  $('#err-box').innerHTML = d.error
+    ? `<div class="err">Last fetch failed: ${esc(d.error)}. Check your internet connection.</div>` : '';
+
+  $('#live-rounds').innerHTML = (d.live || []).map((r) => {
+    if (!r.slug) return `<div class="round"><div class="top"><span class="h">${r.horizon} min</span></div>
+      <div class="empty">Waiting for the first poll…</div></div>`;
+    const total = r.horizon * 60;
+    roundLen[r.horizon] = total;
+    if (r.secsToClose != null) endAt[r.horizon] = Date.now() + r.secsToClose * 1000;
+    const left = Math.max(0, r.secsToClose ?? 0);
+    const prog = Math.max(0, Math.min(1, 1 - left / total));
+    const mp = r.marketProb ?? 0.5;
+    const mv = (r.spot != null && r.priceToBeat != null) ? r.spot - r.priceToBeat : null;
+    const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+    return `<div class="round">
+      <div class="top"><span class="h">${r.horizon} min</span>
+        <span class="pill ${r.status === 'MARKET_STATUS_OPEN' ? 'pos' : 'mut'}">${r.status === 'MARKET_STATUS_OPEN' ? 'open' : 'closed'}</span>
+        <span class="cd" data-cd="${r.horizon}">${mm}:${ss}</span></div>
+      <div class="bar"><i data-bar="${r.horizon}" style="width:${(100 * prog).toFixed(1)}%"></i></div>
+      <dl class="kv">
+        <dt>Opened at</dt><dd>$${fmt(r.priceToBeat, 2)}</dd>
+        <dt>BTC now</dt><dd>${r.spot != null ? '$' + fmt(r.spot, 2) : '—'}</dd>
+        <dt>Move</dt><dd class="${mv > 0 ? 'up' : mv < 0 ? 'dn' : ''}">${mv == null ? '—' : (mv > 0 ? '+' : '') + fmt(mv, 2)}</dd>
+      </dl>
+      <div class="lean">
+        <span class="dn">Down</span>
+        <span class="track"><span class="fill" style="width:${(100 * mp).toFixed(1)}%"></span>
+          <span class="mid"></span><span class="pct">${pct(mp, 0)} up</span></span>
+        <span class="up">Up</span>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty">No horizons enabled.</div>';
+}
+
+/**
+ * The countdown runs off the round's known end time, so it ticks every second
+ * without asking the server anything. Polling the market once a second would
+ * be 170,000 requests a day for a number we can just compute.
+ */
+function tickClocks() {
+  for (const el of document.querySelectorAll('[data-cd]')) {
+    const h = Number(el.dataset.cd);
+    if (!endAt[h]) continue;
+    const left = Math.max(0, Math.round((endAt[h] - Date.now()) / 1000));
+    const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+    el.textContent = `${mm}:${ss}`;
+    if (left <= 10) el.classList.add('dn'); else el.classList.remove('dn');
+  }
+  for (const el of document.querySelectorAll('[data-bar]')) {
+    const h = Number(el.dataset.bar);
+    if (!endAt[h] || !roundLen[h]) continue;
+    const left = Math.max(0, (endAt[h] - Date.now()) / 1000);
+    el.style.width = (100 * Math.max(0, Math.min(1, 1 - left / roundLen[h]))).toFixed(2) + '%';
+  }
+}
+setInterval(tickClocks, 250);
+
+/** Rows for bets that have not settled. `shares` is the payout if it wins. */
+function renderOpen(sel, list) {
+  const tb = document.querySelector(sel + ' tbody');
+  if (!tb) return;
+  const rows = [];
+  for (const r of list || []) {
+    for (const b of r.bets || []) {
+      rows.push(`<tr>
+        <td class="n">${esc(String(r.slug).replace('btc-updown-', ''))}</td>
+        <td class="n">${r.horizon}</td>
+        <td>${esc(b.strategy)}</td>
+        <td><span class="pill ${b.side === 'UP' ? 'pos' : 'neg'}">${esc(b.side)}</span></td>
+        <td class="n">${fmt(b.price, 3)}</td>
+        <td class="n">${money(b.shares)}</td>
+      </tr>`);
+    }
+  }
+  tb.innerHTML = rows.join('') ||
+    '<tr><td colspan="6" class="empty">No bets riding. The next ones go on shortly before a round closes.</td></tr>';
+}
+
+// ---------- candlestick chart ----------
+let candleData = { candles: [], marks: [] };
+function drawChart() {
+  const cv = $('#chart'), ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const css = getComputedStyle(document.documentElement);
+  const C = (n) => css.getPropertyValue(n).trim();
+  const rows = candleData.candles || [];
+  if (rows.length < 2) {
+    ctx.fillStyle = C('--ink-3'); ctx.font = '13px ' + C('--sans');
+    ctx.textAlign = 'center'; ctx.fillText('Loading candles…', w / 2, h / 2);
+    return;
+  }
+
+  const padL = 8, padR = 58, padT = 10, padB = 22;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows) { lo = Math.min(lo, r.low); hi = Math.max(hi, r.high); }
+  for (const m of candleData.marks || []) if (m.priceToBeat) { lo = Math.min(lo, m.priceToBeat); hi = Math.max(hi, m.priceToBeat); }
+  const pad = (hi - lo) * 0.08 || 1;
+  lo -= pad; hi += pad;
+
+  const t0 = rows[0].t, t1 = rows[rows.length - 1].t + 60000;
+  const X = (t) => padL + ((t - t0) / (t1 - t0)) * plotW;
+  const Y = (p) => padT + (1 - (p - lo) / (hi - lo)) * plotH;
+
+  // horizontal grid + price axis
+  ctx.font = '11px ' + C('--mono'); ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const p = lo + ((hi - lo) * i) / 4, y = Y(p);
+    ctx.strokeStyle = C('--line'); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, Math.round(y) + .5); ctx.lineTo(padL + plotW, Math.round(y) + .5); ctx.stroke();
+    ctx.fillStyle = C('--ink-3'); ctx.textAlign = 'left';
+    ctx.fillText(Math.round(p).toLocaleString(), padL + plotW + 6, y);
+  }
+
+  // round boundaries
+  for (const m of candleData.marks || []) {
+    for (const key of ['start', 'end']) {
+      const t = Date.parse(m[key]);
+      if (!t || t < t0 || t > t1) continue;
+      const x = Math.round(X(t)) + .5;
+      ctx.strokeStyle = C('--line-2'); ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // candles
+  const slot = plotW / rows.length;
+  const bw = Math.max(1.5, Math.min(7, slot * 0.68));
+  for (const r of rows) {
+    const x = X(r.t + 30000);
+    const up = r.close >= r.open;
+    ctx.strokeStyle = ctx.fillStyle = up ? C('--up') : C('--down');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x) + .5, Y(r.high));
+    ctx.lineTo(Math.round(x) + .5, Y(r.low));
+    ctx.stroke();
+    const yO = Y(r.open), yC = Y(r.close);
+    const top = Math.min(yO, yC), bh = Math.max(1, Math.abs(yC - yO));
+    ctx.fillRect(x - bw / 2, top, bw, bh);
+  }
+
+  // the line that decides the round
+  for (const m of candleData.marks || []) {
+    if (!m.priceToBeat) continue;
+    const y = Math.round(Y(m.priceToBeat)) + .5;
+    ctx.strokeStyle = C('--accent'); ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C('--accent'); ctx.textAlign = 'left'; ctx.font = '10px ' + C('--mono');
+    ctx.fillText(m.horizon + 'm open', padL + 3, y - 7);
+    break;
+  }
+
+  // time axis
+  ctx.fillStyle = C('--ink-3'); ctx.font = '11px ' + C('--mono'); ctx.textBaseline = 'top';
+  for (let i = 0; i <= 3; i++) {
+    const t = t0 + ((t1 - t0) * i) / 3;
+    const d = new Date(t);
+    const lbl = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    ctx.textAlign = i === 0 ? 'left' : i === 3 ? 'right' : 'center';
+    ctx.fillText(lbl, X(t), padT + plotH + 6);
+  }
+}
+window.addEventListener('resize', drawChart);
+
+// ---------- paper ----------
+function renderPaper(d) {
+  $('#pp-pnl').textContent = money(d.totalPnl);
+  $('#pp-pnl').className = 'v ' + (d.totalPnl > 0 ? 'up' : d.totalPnl < 0 ? 'dn' : '');
+  const o = d.overall || {};
+  const n = o.n ?? (d.strategies || []).reduce((a, s) => a + s.n, 0);
+  $('#pp-wr').textContent = pct(o.winRate);
+  // Green only when it clears the bar that actually matters.
+  $('#pp-wr').className = 'v ' + (o.winRate != null && o.needed != null
+    ? (o.winRate > o.needed ? 'up' : 'dn') : '');
+  $('#pp-need').textContent = pct(o.needed);
+  $('#pp-n').textContent = n;
+  $('#pp-stake').textContent = '$' + fmt(d.stake, 0);
+  $('#pp-overall').textContent = o.n
+    ? `Across every strategy: ${o.wins} of ${o.n} bets won. "Always up" and "always down" are mirror images, so counting both pulls this toward 50% no matter what. Leaving those two out: ${pct(o.realWinRate)} on ${o.realN} bets, against ${pct(o.realNeeded)} needed.`
+    : '';
+  $('#s-wr').textContent = o.winRate != null ? pct(o.winRate, 0) : '—';
+
+  const tb = $('#pp-table tbody');
+  tb.innerHTML = (d.strategies || []).map((s) => {
+    const cls = s.verdict === 'POSITIVE' ? 'pos' : s.verdict === 'negative' ? 'neg' : 'mut';
+    return `<tr>
+      <td>${esc(s.strategy)}</td>
+      <td class="n">${s.n}</td>
+      <td class="n">${pct(s.winRate)}</td>
+      <td class="n">${pct(s.breakeven)}</td>
+      <td class="n ${s.pnl > 0 ? 'up' : s.pnl < 0 ? 'dn' : ''}">${money(s.pnl)}</td>
+      <td><span class="pill ${cls}">${esc(s.verdict)}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="empty">No settled bets yet. Bets are placed shortly before each round closes.</td></tr>';
+
+  $('#pp-note').textContent = n < 100
+    ? 'Everything says "too few" until a strategy has 100 bets, and nothing is worth believing until several hundred.'
+    : 'A strategy beating 50% but below "needed" is still losing money.';
+
+  $('#pp-recent tbody').innerHTML = (d.recent || []).map((r) => {
+    const net = r.bets.reduce((a, b) => a + b.pnl, 0);
+    return `<tr>
+      <td class="n">${esc(String(r.slug).replace('btc-updown-', ''))}</td>
+      <td class="n">${r.horizon}</td>
+      <td><span class="pill ${r.resolvedUp ? 'pos' : 'neg'}">${r.resolvedUp ? 'UP' : 'DOWN'}</span></td>
+      <td class="n">${r.bets.length}</td>
+      <td class="n ${net > 0 ? 'up' : net < 0 ? 'dn' : ''}">${money(net)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">Nothing settled yet.</td></tr>';
+}
+
+// ---------- model ----------
+function gateHTML(g) {
+  return `<div class="gate">
+    <span class="mark ${g.pass ? 'on' : ''}">${g.pass ? '&#10003;' : g.id}</span>
+    <span><span class="t">${esc(g.name)}</span><span class="d">${esc(g.detail)}</span></span>
+  </div>`;
+}
+function renderLearn(d) {
+  const b = d.benchmark || {};
+  $('#ml-lm').textContent = b.ready ? fmt(b.lossModel, 4) : '—';
+  $('#ml-lk').textContent = b.ready ? fmt(b.lossMarket, 4) : '—';
+  const vd = b.ready ? b.verdict : 'not enough rounds';
+  $('#ml-vd').textContent = vd;
+  $('#ml-vd').className = 'v ' + (b.beatsMarket ? 'up' : vd === 'worse than market' ? 'dn' : '');
+
+  $('#ml-gates').innerHTML = (d.gates || []).map(gateHTML).join('');
+  $('#lv-gates').innerHTML = (d.gates || []).map(gateHTML).join('');
+
+  $('#ml-cal tbody').innerHTML = (d.calibration || []).map((c) => `<tr>
+    <td class="n">${pct(c.lo, 0)}–${pct(c.hi, 0)}</td>
+    <td class="n">${c.n}</td>
+    <td class="n">${c.n ? pct(c.claimed) : '—'}</td>
+    <td class="n">${c.n ? pct(c.actual) : '—'}</td>
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">No calls yet.</td></tr>';
+
+  $('#ml-w tbody').innerHTML = (d.weights || []).map((x) => `<tr>
+    <td>${esc(x.label || x.key)}</td>
+    <td class="n ${x.w > 0.01 ? 'up' : x.w < -0.01 ? 'dn' : ''}">${fmt(x.w, 4)}</td>
+  </tr>`).join('') + `<tr><td>baseline shift</td><td class="n">${fmt(d.bias, 4)}</td></tr>`;
+
+  $('#ml-note').textContent =
+    `Trained on ${d.trained} rounds. Betting unlocks at ${d.minTrained}, and only if its disagreement with the market varies enough to be a signal rather than a fixed bias. Currently ${d.informative ? 'informative' : 'not informative'}.`;
+}
+
+// ---------- settings ----------
+let settings = null;
+function renderSettings(s) {
+  settings = s;
+  $('#st-recstate').textContent = s.recording ? 'Running now.' : 'Paused. Nothing is being collected.';
+  $('#st-on').setAttribute('aria-pressed', String(!!s.recording));
+  $('#st-off').setAttribute('aria-pressed', String(!s.recording));
+  $('#st-stop').value = s.stopAfter ?? 0;
+  $('#st-stake').value = s.stake ?? 10;
+  $('#st-entry').value = s.entrySecs ?? 60;
+  const h = (s.horizons || []).slice().sort((a, b) => b - a).join(',');
+  $('#st-h15').setAttribute('aria-pressed', String(h === '15'));
+  $('#st-h5').setAttribute('aria-pressed', String(h === '5'));
+  $('#st-hb').setAttribute('aria-pressed', String(h === '15,5'));
+}
+async function post(patch) {
+  const r = await fetch('/api/settings', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch),
+  });
+  const j = await r.json();
+  renderSettings(j);
+  $('#st-msg').textContent = 'Saved.';
+  setTimeout(() => { $('#st-msg').textContent = ''; }, 2500);
+  return j;
+}
+$('#st-on').onclick = () => post({ recording: true });
+$('#st-off').onclick = () => post({ recording: false });
+$('#st-h15').onclick = () => post({ horizons: [15] });
+$('#st-h5').onclick = () => post({ horizons: [5] });
+$('#st-hb').onclick = () => post({ horizons: [15, 5] });
+$('#st-save').onclick = () => post({
+  stopAfter: Number($('#st-stop').value),
+  stake: Number($('#st-stake').value),
+  entrySecs: Number($('#st-entry').value),
+});
+
+// ---------- loop ----------
+async function refresh() {
+  try {
+    const d = await get('/api/dashboard');
+    renderRounds(d);
+    renderOpen('#ob-table', d.openBets);
+    if (tab !== 'paper') {
+      try { const o = (await get('/api/paper')).overall || {};
+            $('#s-wr').textContent = o.winRate != null ? pct(o.winRate, 0) : '—'; } catch {}
+    }
+    if (tab === 'paper') { const p = await get('/api/paper'); renderPaper(p); renderOpen('#pp-open', p.open); }
+    if (tab === 'learn' || tab === 'live') renderLearn(await get('/api/learn'));
+    if (tab === 'set' && !settings) renderSettings(await get('/api/settings'));
+  } catch (e) {
+    $('#err-box').innerHTML = `<div class="err">Can't reach the app. Is it still running?</div>`;
+  }
+}
+async function refreshChart() {
+  try { candleData = await get('/api/candles'); drawChart(); } catch {}
+}
+refresh(); refreshChart();
+setInterval(refresh, 3000);
+setInterval(refreshChart, 30000);
+</script>
+</body>
+</html>

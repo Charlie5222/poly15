@@ -1,0 +1,17 @@
+# Recorded market data and the trained model. Lives in
+# ~/Library/Application Support/Poly15/data when run from the app.
+data/
+
+# Built macOS bundle (rebuild with scripts/make-app.command)
+Poly15.app/
+
+# Output written by the diagnostic and probe scripts
+chk-*.json
+check-*.json
+tools/verify-yes-is-up.json
+tools/probes/*.json
+
+# OS and editor noise
+.DS_Store
+node_modules/
+*.log
