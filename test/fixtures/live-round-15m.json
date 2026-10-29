@@ -1,0 +1,979 @@
+{
+  "id": "198385",
+  "chatChannel": {
+    "id": "crypto-updown-btc-15m",
+    "type": "CHAT_CHANNEL_TYPE_MESSAGING",
+    "chatMemberCount": 350271
+  },
+  "ticker": "btc-updown-15m-2026-10-28-0345z",
+  "slug": "btc-updown-15m-2026-10-28-0345z",
+  "title": "BTC Up or Down 15m",
+  "description": "BTC Up or Down 15m",
+  "startDate": "2026-10-28T03:45:00Z",
+  "endDate": "2026-10-28T04:00:00Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/us-logos/crypto/btc-8f449c2d62321b959ef864abc8701e411fe174534a01cd7710f7e4fc546f3deb.png",
+  "imageDisplayType": "IMAGE_DISPLAY_TYPE_LOGO",
+  "active": true,
+  "closed": false,
+  "archived": false,
+  "category": "crypto",
+  "createdAt": "2026-10-27T16:16:04Z",
+  "updatedAt": "2026-10-28T03:45:00Z",
+  "startTime": "2026-10-28T03:45:00Z",
+  "seriesSlug": "btc-updown-15m",
+  "period": "NS",
+  "live": true,
+  "ended": false,
+  "markets": [
+    {
+      "id": "1872583",
+      "question": "BTC Up or Down 15m",
+      "slug": "cpc-btc-updown-15m-2026-10-28-0345z",
+      "endDate": "2026-10-28T04:30:00Z",
+      "category": "crypto",
+      "startDate": "2026-10-27T15:45:16Z",
+      "description": "This market will settle to Up if the Bitcoin price at 12:00AM ET on Oct 28, 2026 is greater than or equal to the price at 11:45PM ET on Oct 27, 2026. Otherwise, this market will settle to Down. Outcome sourced from CF Benchmarks' Bitcoin Real-Time Index (BRTI), available at https://www.cfbenchmarks.com/data/indices/BRTI. The price at the beginning and at the end of the time range is determined the same way: in the last minute before each of those two times, 60 BRTI prices are collected. The official value for that time is the simple average of these prices, rounded to the nearest 2 decimal places. Please note that this market is about the price according to CF Benchmarks' BRTI, not according to other sources or spot markets.",
+      "active": true,
+      "marketType": "",
+      "closed": false,
+      "createdAt": "2026-10-27T16:16:04Z",
+      "updatedAt": "2026-10-28T03:45:00Z",
+      "archived": false,
+      "orderPriceMinTickSize": 0.01,
+      "gameStartTime": "2026-10-28T03:45:00Z",
+      "manualActivation": false,
+      "sportsMarketType": "",
+      "marketSides": [
+        {
+          "id": "3744632",
+          "marketSideType": "MARKET_SIDE_TYPE_INSTRUMENT",
+          "identifier": "cpc-btc-updown-15m-2026-10-28-0345z",
+          "createdAt": "2026-10-27T16:16:04Z",
+          "updatedAt": "2026-10-27T16:16:04Z",
+          "description": "Yes",
+          "price": "0.2200",
+          "marketId": 1872583,
+          "long": true,
+          "quote": {
+            "value": "0.2300",
+            "currency": "USD"
+          },
+          "tradable": true
+        },
+        {
+          "id": "3744633",
+          "marketSideType": "MARKET_SIDE_TYPE_INSTRUMENT",
+          "identifier": "cpc-btc-updown-15m-2026-10-28-0345z",
+          "createdAt": "2026-10-27T16:16:04Z",
+          "updatedAt": "2026-10-27T16:16:04Z",
+          "description": "No",
+          "price": "0.2300",
+          "marketId": 1872583,
+          "long": false,
+          "quote": {
+            "value": "0.78",
+            "currency": "USD"
+          },
+          "tradable": true
+        }
+      ],
+      "outcomes": "[\"Yes\",\"No\"]",
+      "outcomePrices": "[\"0.2200\",\"0.2300\"]",
+      "ep3Status": "OPEN",
+      "status": "MARKET_STATUS_OPEN",
+      "assetPriceTerms": {
+        "marketType": "ASSET_PRICE_MARKET_TYPE_UP_DOWN",
+        "asset": {
+          "assetClass": "ASSET_CLASS_CRYPTO",
+          "symbol": "btc"
+        },
+        "indexSymbol": "BRTI",
+        "horizon": "15m",
+        "windowStart": "2026-10-28T03:45:00Z",
+        "windowEnd": "2026-10-28T04:00:00Z",
+        "priceToBeat": {
+          "value": "81079.52",
+          "currency": "USD"
+        },
+        "strike": null,
+        "rangeLower": null,
+        "rangeUpper": null,
+        "rangeKind": "ASSET_PRICE_RANGE_KIND_UNSPECIFIED",
+        "direction": "ASSET_PRICE_DIRECTION_UNSPECIFIED",
+        "settlementPrice": null,
+        "chart": {
+          "ranges": [
+            {
+              "kind": "ASSET_PRICE_CHART_KIND_LIVE",
+              "span": "30s",
+              "bucket": "ASSET_PRICE_BUCKET_1S"
+            },
+            {
+              "kind": "ASSET_PRICE_CHART_KIND_WINDOW",
+              "span": "900s",
+              "bucket": "ASSET_PRICE_BUCKET_1S"
+            },
+            {
+              "kind": "ASSET_PRICE_CHART_KIND_LOOKBACK",
+              "span": "3600s",
+              "bucket": "ASSET_PRICE_BUCKET_5S"
+            }
+          ],
+          "resolved": {
+            "kind": "ASSET_PRICE_CHART_KIND_WINDOW",
+            "span": "900s",
+            "bucket": "ASSET_PRICE_BUCKET_1S"
+          },
+          "color": {
+            "light": "#F7931A",
+            "dark": "#F7931A"
+          },
+          "axis": {
+            "headroom": 0.15,
+            "expandRate": 0.22,
+            "contractRate": 0.03,
+            "snap": 0.001,
+            "tickCount": 5,
+            "minSpan": null
+          }
+        },
+        "priceDecimals": 2,
+        "assetName": "",
+        "priceUnit": "",
+        "nextWindowStart": "2026-10-28T04:00:00Z"
+      },
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_UNSPECIFIED",
+      "hidden": false,
+      "tags": [],
+      "title": "BTC Up or Down 15m",
+      "subtitle": "Oct 27, 11:45PM - 12:00AM",
+      "feeCoefficient": 0.0695,
+      "bestBidQuote": {
+        "value": "0.2200",
+        "currency": "USD"
+      },
+      "bestAskQuote": {
+        "value": "0.2300",
+        "currency": "USD"
+      },
+      "titleShort": "BTC Up or Down 15m",
+      "ep3SyncedAt": "2026-10-28T03:45:00Z",
+      "minimumTradeQty": 0.01,
+      "comboEnabled": true,
+      "politics": null
+    }
+  ],
+  "participants": [],
+  "hidden": false,
+  "tags": [
+    {
+      "id": "634",
+      "label": "Crypto",
+      "slug": "crypto",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "image": "https://static.polymarket.us/images/new-category-icons/Icon-Bitcoin.png",
+      "tradable": false,
+      "subtags": [
+        {
+          "id": "1443",
+          "label": "BTC",
+          "slug": "bitcoin",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "image": "https://static.polymarket.us/images/category-icons/noah/2026-10-26/color/bitcoin-4370304da367.png",
+          "tradable": false,
+          "parentId": 634,
+          "subtags": [
+            {
+              "id": "1852",
+              "label": "Up or Down",
+              "slug": "bitcoin-up-or-down",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1853",
+              "label": "15 min",
+              "slug": "bitcoin-15m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1854",
+              "label": "1 hour",
+              "slug": "bitcoin-1h",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1855",
+              "label": "Daily",
+              "slug": "bitcoin-daily",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1872",
+              "label": "Above or Below",
+              "slug": "bitcoin-multi-strikes",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1873",
+              "label": "Price Range",
+              "slug": "bitcoin-neg-risk",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1880",
+              "label": "5 min",
+              "slug": "bitcoin-5m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1881",
+              "label": "4 hours",
+              "slug": "bitcoin-4h",
+              "updatedAt": "2026-10-27T00:08:34Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1882",
+              "label": "Weekly",
+              "slug": "bitcoin-weekly",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1883",
+              "label": "Hit Price",
+              "slug": "bitcoin-hit-price",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1884",
+              "label": "Monthly",
+              "slug": "bitcoin-monthly",
+              "updatedAt": "2026-10-27T00:08:38Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1885",
+              "label": "Hit High",
+              "slug": "bitcoin-hit-high",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1886",
+              "label": "Hit Low",
+              "slug": "bitcoin-hit-low",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1443,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            }
+          ],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1778",
+          "label": "ETH",
+          "slug": "ethereum",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "image": "https://static.polymarket.us/images/category-icons/noah/2026-10-26/color/eth-c4af75c8a121.png",
+          "tradable": false,
+          "parentId": 634,
+          "subtags": [
+            {
+              "id": "1856",
+              "label": "Up or Down",
+              "slug": "ethereum-up-or-down",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1857",
+              "label": "15 min",
+              "slug": "ethereum-15m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1858",
+              "label": "Hit Price",
+              "slug": "ethereum-hit-price",
+              "updatedAt": "2026-10-28T01:46:23Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1859",
+              "label": "Monthly",
+              "slug": "ethereum-monthly",
+              "updatedAt": "2026-10-27T00:08:47Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1860",
+              "label": "Hit High",
+              "slug": "ethereum-hit-high",
+              "updatedAt": "2026-10-27T23:02:08Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1861",
+              "label": "Hit Low",
+              "slug": "ethereum-hit-low",
+              "updatedAt": "2026-10-28T01:46:23Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1862",
+              "label": "1 hour",
+              "slug": "ethereum-1h",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1863",
+              "label": "Daily",
+              "slug": "ethereum-daily",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1874",
+              "label": "Above or Below",
+              "slug": "ethereum-multi-strikes",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1875",
+              "label": "Price Range",
+              "slug": "ethereum-neg-risk",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1887",
+              "label": "5 min",
+              "slug": "ethereum-5m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1888",
+              "label": "4 hours",
+              "slug": "ethereum-4h",
+              "updatedAt": "2026-10-27T00:08:43Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1889",
+              "label": "Weekly",
+              "slug": "ethereum-weekly",
+              "updatedAt": "2026-10-28T01:46:23Z",
+              "parentId": 1778,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            }
+          ],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1779",
+          "label": "SOL",
+          "slug": "solana",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "image": "https://static.polymarket.us/images/category-icons/noah/2026-10-26/color/sol-f217a218975c.png",
+          "tradable": false,
+          "parentId": 634,
+          "subtags": [
+            {
+              "id": "1836",
+              "label": "Hit Price",
+              "slug": "solana-hit-price",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1837",
+              "label": "Monthly",
+              "slug": "solana-monthly",
+              "updatedAt": "2026-10-27T00:08:57Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1838",
+              "label": "Hit High",
+              "slug": "solana-hit-high",
+              "updatedAt": "2026-10-27T00:08:54Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1839",
+              "label": "Hit Low",
+              "slug": "solana-hit-low",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1840",
+              "label": "Up or Down",
+              "slug": "solana-up-or-down",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1841",
+              "label": "15 min",
+              "slug": "solana-15m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1842",
+              "label": "1 hour",
+              "slug": "solana-1h",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1843",
+              "label": "Daily",
+              "slug": "solana-daily",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1876",
+              "label": "Above or Below",
+              "slug": "solana-multi-strikes",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1877",
+              "label": "Price Range",
+              "slug": "solana-neg-risk",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1890",
+              "label": "5 min",
+              "slug": "solana-5m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1891",
+              "label": "4 hours",
+              "slug": "solana-4h",
+              "updatedAt": "2026-10-27T00:08:52Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1892",
+              "label": "Weekly",
+              "slug": "solana-weekly",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1779,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            }
+          ],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1780",
+          "label": "XRP",
+          "slug": "xrp",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "image": "https://static.polymarket.us/images/category-icons/noah/2026-10-26/color/xrp-207abcf7bf8b.png",
+          "parentId": 634,
+          "subtags": [
+            {
+              "id": "1844",
+              "label": "Up or Down",
+              "slug": "xrp-up-or-down",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1845",
+              "label": "15 min",
+              "slug": "xrp-15m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1846",
+              "label": "Hit Price",
+              "slug": "xrp-hit-price",
+              "updatedAt": "2026-10-27T22:45:55Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1847",
+              "label": "Monthly",
+              "slug": "xrp-monthly",
+              "updatedAt": "2026-10-27T00:09:06Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1848",
+              "label": "Hit High",
+              "slug": "xrp-hit-high",
+              "updatedAt": "2026-10-27T00:09:04Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1849",
+              "label": "Hit Low",
+              "slug": "xrp-hit-low",
+              "updatedAt": "2026-10-27T22:45:55Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1850",
+              "label": "1 hour",
+              "slug": "xrp-1h",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1851",
+              "label": "Daily",
+              "slug": "xrp-daily",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1878",
+              "label": "Above or Below",
+              "slug": "xrp-multi-strikes",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1879",
+              "label": "Price Range",
+              "slug": "xrp-neg-risk",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1893",
+              "label": "5 min",
+              "slug": "xrp-5m",
+              "updatedAt": "2026-10-28T03:45:48Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1894",
+              "label": "4 hours",
+              "slug": "xrp-4h",
+              "updatedAt": "2026-10-27T00:09:02Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            },
+            {
+              "id": "1895",
+              "label": "Weekly",
+              "slug": "xrp-weekly",
+              "updatedAt": "2026-10-28T00:16:58Z",
+              "parentId": 1780,
+              "subtags": [],
+              "hub": null,
+              "featuredEventIds": []
+            }
+          ],
+          "hub": null,
+          "featuredEventIds": []
+        }
+      ],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1439",
+      "label": "Crypto Prices",
+      "slug": "crypto-prices",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1440",
+      "label": "Recurring",
+      "slug": "recurring",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1443",
+      "label": "BTC",
+      "slug": "bitcoin",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "image": "https://static.polymarket.us/images/category-icons/noah/2026-10-26/color/bitcoin-4370304da367.png",
+      "tradable": false,
+      "parentId": 634,
+      "subtags": [
+        {
+          "id": "1852",
+          "label": "Up or Down",
+          "slug": "bitcoin-up-or-down",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1853",
+          "label": "15 min",
+          "slug": "bitcoin-15m",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1854",
+          "label": "1 hour",
+          "slug": "bitcoin-1h",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1855",
+          "label": "Daily",
+          "slug": "bitcoin-daily",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1872",
+          "label": "Above or Below",
+          "slug": "bitcoin-multi-strikes",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1873",
+          "label": "Price Range",
+          "slug": "bitcoin-neg-risk",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1880",
+          "label": "5 min",
+          "slug": "bitcoin-5m",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1881",
+          "label": "4 hours",
+          "slug": "bitcoin-4h",
+          "updatedAt": "2026-10-27T00:08:34Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1882",
+          "label": "Weekly",
+          "slug": "bitcoin-weekly",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1883",
+          "label": "Hit Price",
+          "slug": "bitcoin-hit-price",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1884",
+          "label": "Monthly",
+          "slug": "bitcoin-monthly",
+          "updatedAt": "2026-10-27T00:08:38Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1885",
+          "label": "Hit High",
+          "slug": "bitcoin-hit-high",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        },
+        {
+          "id": "1886",
+          "label": "Hit Low",
+          "slug": "bitcoin-hit-low",
+          "updatedAt": "2026-10-28T03:45:48Z",
+          "parentId": 1443,
+          "subtags": [],
+          "hub": null,
+          "featuredEventIds": []
+        }
+      ],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1444",
+      "label": "Up or Down",
+      "slug": "up-or-down",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1445",
+      "label": "15 Minutes",
+      "slug": "15M",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1446",
+      "label": "Hide From New",
+      "slug": "hide-from-new",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1852",
+      "label": "Up or Down",
+      "slug": "bitcoin-up-or-down",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "parentId": 1443,
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    },
+    {
+      "id": "1853",
+      "label": "15 min",
+      "slug": "bitcoin-15m",
+      "updatedAt": "2026-10-28T03:45:48Z",
+      "parentId": 1443,
+      "subtags": [],
+      "hub": null,
+      "featuredEventIds": []
+    }
+  ],
+  "teams": [],
+  "sortType": "manual",
+  "marketGroups": [],
+  "streamProvider": "",
+  "streamRequiresAuth": false,
+  "combos": {
+    "enabled": true,
+    "numMarkets": 1,
+    "numSpreadsAndTotalsMarkets": 0
+  },
+  "marketCounts": {
+    "numMarkets": 1,
+    "numSpreadsAndTotalsMarkets": 0
+  },
+  "fixtureId": "",
+  "insiderTradingRules": null,
+  "payoutEstimateMessage": "",
+  "payoutEstimateTime": ""
+}

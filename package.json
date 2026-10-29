@@ -1,0 +1,16 @@
+{
+  "name": "poly15",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Records Polymarket US 5- and 15-minute BTC up/down rounds and paper trades them, to find out whether any strategy beats the fee before real money is involved.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.js",
+    "verify:yes-is-up": "node tools/verify-yes-is-up.js",
+    "experiment:power": "node tools/experiments/power.js"
+  }
+}
