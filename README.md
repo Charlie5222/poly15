@@ -23,12 +23,13 @@ So a strategy that "wins more than half the time" can still lose money. poly15 a
 
 ## Where things stand
 
-- **Recording**: works. Both horizons, about 384 rounds a day.
-- **Paper trading**: works. Seven strategies bet every round, and an eighth (the model's edge bet) only once the model has earned it. P&L is in dollars at a flat $10 stake.
-- **The learning model**: works, but slowly. See the finding below.
-- **Real money**: deliberately not built. The Live tab is locked behind three gates.
+- **Recording**: works. Both horizons, about 384 rounds a day, with order-book depth and BRTI (the index the rounds settle on).
+- **Paper trading**: works. Eleven strategies, including two maker (no-fee, resting order) strategies, bet at 120, 60 and 30 seconds before close. Taker bets fill against the real order book.
+- **History**: about four weeks of past rounds are backfilled from Polymarket US's own endpoints and replayed as a walk-forward backtest. They also give the model training rows from day one.
+- **The learning model (v2)**: a full ridge-logistic refit after every round. Gate 1 uses a sequential test that stays honest however often you look.
+- **Real money**: deliberately not built. It stays locked behind three gates, all now computed.
 
-**The most important finding so far, from simulation:** the "does the model beat the market" gate needs about **6,000 rounds** to reliably confirm even a very large planted edge (15 probability points), and it never confirms one at 2,000 rounds. A one-line change to feature scaling raises detection at 2,000 rounds from 0% to 80% with no increase in false alarms. Smaller, more realistic edges (8 points or less) are not detected within weeks either way. Details and the reproducible experiment are in [`docs/MODEL.md`](docs/MODEL.md#how-much-data-the-gate-needs).
+**What the statistics allow:** in simulation, gate 1 now catches a very large planted edge (15 probability points) 90% of the time by 2,000 live rounds (about 5 days); v1 caught it 0% of the time at that point and needed about 6,000. It has **never** falsely passed on a fair market. Realistic edges (8 points or less) are still not detectable within weeks, and that is a property of coin-flip outcomes, not of the code. Details in [`docs/MODEL.md`](docs/MODEL.md#how-much-data-gate-1-needs).
 
 ## Run it
 
@@ -36,7 +37,7 @@ Needs **Node 18 or newer** and nothing else. There are no dependencies.
 
 ```bash
 git clone <this repo> poly15 && cd poly15
-npm test          # offline test suite, about 1 second
+npm test          # offline test suite, a few seconds
 npm start         # serves the app on http://127.0.0.1:18790
 ```
 
@@ -51,39 +52,45 @@ The server binds to `127.0.0.1` only.
 ```
 every ~10 seconds, for each horizon (15 min, 5 min):
   1. work out the live round's slug from the clock   (btc-updown-15m-2026-10-28-0345z)
-  2. fetch it from gateway.polymarket.us              (open price, quotes, fee, status)
-  3. fetch BTC spot from Coinbase                     (free, keyless)
-  4. append a snapshot to snapshots.jsonl
+  2. fetch the event and its order book               (gateway.polymarket.us)
+  3. read BTC from BRTI, 1-second resolution           (the index the round settles on)
+  4. append a snapshot, with book depth
 
-  about 60 seconds before the round closes:
-  5. every strategy places a paper bet at the price actually on offer
+  at 120, 60 and 30 seconds before close:
+  5. every strategy places a paper bet, filled against the real order book
      (written to predictions.jsonl before the outcome exists)
 
-  after a round settles:
-  6. score every bet against the real outcome         (scored.jsonl)
-  7. the model learns from the round, once            (model.json)
+  after a round settles (official settlement only):
+  6. score every bet                                   (scored.jsonl)
+  7. the model adds the round and refits               (model.json)
+
+  on startup and continuously: score anything missed while the Mac slept
+  hourly: backfill past rounds and re-run the backtest
 ```
 
 The model does not predict from scratch. It predicts a **correction to the market's own price**. If it learns nothing, it reproduces the market exactly, sees nothing to disagree with, and places no bets. Its failure mode is silence, not confident nonsense.
 
 ## The app
 
+Three tabs, with settings behind the gear. Follows macOS light and dark mode.
+
 | tab | shows |
 |---|---|
-| Dashboard | both live rounds with countdowns, bets riding right now, BTC 1-minute candles with the round's opening price marked |
-| Paper | balance, overall win rate against the rate needed, per-strategy table with verdicts, open and recent bets |
-| Model | gate 1 (model vs market), the three gates, calibration, learned weights |
-| Live | locked, with the checklist that would unlock it |
-| Settings | start/stop, stop betting after N rounds, stake, entry timing, horizons |
+| Now | both live rounds with countdowns and the model's view, bets riding, BTC candles with the opening price marked |
+| Results | paper P&L and win rate against the rate needed, per-strategy verdicts, filters for entry time, horizon and v1 data, the backtest |
+| Model | the three gates, gate 1's progress, calibration, what the model has learned |
+| ⚙︎ | recording on/off, stop after N rounds, stake, entry times, horizons |
 
 ## Repository map
 
 | path | purpose |
 |---|---|
-| `server.js` | recorder loop, paper betting, settlement, HTTP API, serves the UI |
+| `server.js` | recorder loop, paper betting, settlement, catch-up, HTTP API and its security checks |
 | `us.js` | Polymarket US adapter: slugs, fetching, parsing, fee formula |
-| `paper.js` | features, the learning model, strategies, scoring, calibration, gate 1 |
-| `ui.html` | the whole front end: one file, no build step, canvas candlestick chart |
+| `paper.js` | features, the model, the sequential test, strategies, order-book fills, scoring, calibration |
+| `store.js` | the data files: read once at startup, held in memory, appended to |
+| `history.js` | backfill of past rounds, walk-forward backtest |
+| `ui.html` | the whole front end: one file, no build step, three tabs, canvas candlestick chart |
 | `test/` | offline tests, including one against a real captured market payload |
 | `scripts/` | macOS helpers: build the app, open it, restart it, dump its state |
 | `tools/verify-yes-is-up.js` | checks against settled rounds that the market's "Yes" means Up |
@@ -96,7 +103,7 @@ The model does not predict from scratch. It predicts a **correction to the marke
 
 - [`docs/REVIEW.md`](docs/REVIEW.md): start here if reviewing. Verified facts, assumptions, known issues, questions worth asking.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, file formats, the HTTP API, how Polymarket US rounds work.
-- [`docs/MODEL.md`](docs/MODEL.md): features, the model's math, the three gates, strategies, scoring, and the power analysis.
+- [`docs/MODEL.md`](docs/MODEL.md): features, the model's math, the three gates, history and the backtest, strategies, fills, scoring, and the power analysis.
 - [`docs/HISTORY.md`](docs/HISTORY.md): how it got here, every decision and why, including the wrong turns.
 
 ## What this is not

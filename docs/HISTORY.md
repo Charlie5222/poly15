@@ -97,4 +97,25 @@ Making that test reliable raised a question: how much data does gate 1 actually 
 - Removing one division by 4 lifts detection at 2,000 rounds to 80%, still with no false alarms.
 - Edges of 8 points or less were not detected within any tested timeframe, with or without the change.
 
-So the agreed "stop after 2,000 rounds" rule would have abandoned even a huge real edge. It is retracted. The scaling change is documented as the top recommendation in REVIEW.md rather than applied, because it changes what an existing trained `model.json` means.
+So the agreed "stop after 2,000 rounds" rule would have abandoned even a huge real edge. It is retracted. The scaling change was documented rather than applied at the time, because it changed what an existing `model.json` meant. Section 13 describes the fuller fix that replaced it.
+
+## 13. The October 2026 improvements (v2)
+
+The owner asked for four phases at once, plus a simpler interface. Decisions they made up front: the work goes on a branch they merge after review; existing recordings are kept but the model is reset; the Mac app is rebuilt afterwards; an always-on server is deferred.
+
+**Phase 1: protect the data.** `store.js` replaced the re-parse-everything reads. A catch-up pass now scores every bet missed while the Mac slept. The settings endpoint gained `Host`, `Origin`, `Content-Type` and custom-header checks; the form-post attack from the review now fails. Snapshots now carry order-book depth and the timestamp of each BTC reading.
+
+Two things found along the way changed the plan:
+
+- **Polymarket US publishes BRTI itself** (`/v1/asset-prices/history`), at 1-second resolution. So the app now reads the index it settles on, instead of Coinbase.
+- **v1 had recorded wrong outcomes.** It read `outcomePrices` while rounds were still trading. Re-checking all 366 recorded rounds against the official settlement found **73** wrong, and they were corrected.
+
+**The absurd profit.** With those corrections, the old Results showed tens of thousands of dollars of paper profit. That was not an edge. In the final minute the event-level quotes often showed one side missing and the other at 1¢ or 99¢, so v1 "bought" $10 at 1¢ and was paid about $990. v2 fills against the order book, which has real prices and real sizes. Results now show v2 data by default, with v1 behind a toggle and a warning.
+
+**Phase 2: the model.** v1's gradient step was replaced by a full ridge-logistic refit on standardized features after every round. Gate 1's fixed three-standard-error rule, which is not valid when looked at repeatedly, was replaced by an anytime-valid sequential test, and gates 2 and 3 are now computed. Tuning with `tools/experiments/power.js` found that lower ridge penalties detected **less**, fitting more often helped, and the mixing parameter of the test barely mattered. A burn-in (only counting gate-1 rounds once the model has 200 rows) helped slightly here, unlike in v1.
+
+**Phase 3: history.** The plan had been to use international Polymarket prices as a stand-in for Polymarket US's past. That turned out to be unnecessary: Polymarket US's own `/v1/price-history` returns each market's asks per minute. One subtlety was verified against recorded snapshots: a point stamped *t* describes the price at *t + 60 s*. About four weeks of rounds are backfilled and replayed walk-forward.
+
+**Phase 4: new entries and strategies.** Entries at 120, 60 and 30 seconds; a late-favourite strategy; two maker strategies that rest at the bid and pay no fee, counted as filled only when a later ask trades through.
+
+**The interface** went from five tabs to three (Now, Results, Model) with settings in a sheet, and follows macOS light and dark mode.
