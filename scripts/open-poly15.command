@@ -1,19 +1,19 @@
 #!/bin/bash
 # Double-click to open the Poly15 window.
 # Poly15 keeps running in the background; this just brings up a window for it.
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 PORT="${POLY15_PORT:-18790}"
 
-if ! curl -s -m 3 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1; then
+if ! curl -sf -m 3 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1; then
   echo "Poly15 is not running. Starting it..."
   open "$(pwd)/Poly15.app"
   for _ in $(seq 1 30); do
-    curl -s -m 1 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1 && break
+    curl -sf -m 1 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1 && break
     sleep 0.5
   done
 fi
 
-if ! curl -s -m 3 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1; then
+if ! curl -sf -m 3 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1; then
   echo "Could not reach Poly15 on port $PORT. See ~/Library/Logs/Poly15.log"
   echo "Done. You can close this window."
   exit 1

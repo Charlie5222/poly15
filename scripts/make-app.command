@@ -1,23 +1,20 @@
 #!/bin/bash
-# make-app.command — builds Poly15.app next to this file.
+# make-app.command — builds Poly15.app in the repo root.
 # Double-click this once. After that, launch Poly15.app like any other app.
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 APP="Poly15.app"
 echo "Building $APP in $(pwd)"
 
-for f in us.js server.js ui.html; do
+for f in server.js us.js paper.js ui.html; do
   [ -f "$f" ] || { echo "ERROR: missing $f. Keep all the files in one folder."; read -r -p "Press return." _ || true; exit 1; }
 done
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/app"
 
-cp us.js server.js ui.html "$APP/Contents/Resources/app/"
-for opt in lib.js strategies.js selftest.js; do [ -f "$opt" ] && cp "$opt" "$APP/Contents/Resources/app/"; done
-[ -f record.js ]  && cp record.js  "$APP/Contents/Resources/app/"
-[ -f analyze.js ] && cp analyze.js "$APP/Contents/Resources/app/"
+cp server.js us.js paper.js ui.html "$APP/Contents/Resources/app/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -67,7 +64,7 @@ if [ -z "$NODE" ]; then
 fi
 
 # If an instance is already serving this port, just show its window.
-if curl -s -m 2 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1; then
+if curl -sf -m 2 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1; then
   open "http://127.0.0.1:$PORT"
   exit 0
 fi
@@ -79,7 +76,7 @@ SERVER_PID=$!
 
 # Wait for it to answer before opening a window.
 for _ in $(seq 1 40); do
-  curl -s -m 1 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1 && break
+  curl -sf -m 1 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1 && break
   kill -0 "$SERVER_PID" 2>/dev/null || {
     osascript -e "display dialog \"Poly15 could not start.\n\nLog: ~/Library/Logs/Poly15.log\" buttons {\"OK\"} default button 1 with title \"Poly15\" with icon stop" >/dev/null 2>&1
     exit 1
@@ -107,7 +104,7 @@ chmod +x "$APP/Contents/MacOS/Poly15"
 xattr -cr "$APP" 2>/dev/null || true
 
 echo
-echo "Done. $APP is in this folder."
+echo "Done. $APP is in $(pwd)."
 echo "Recordings are saved to: ~/Library/Application Support/Poly15/data"
 echo "Drag it to /Applications if you like, then double-click to run."
 echo

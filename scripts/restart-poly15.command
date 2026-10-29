@@ -1,7 +1,7 @@
 #!/bin/bash
 # Double-click to restart Poly15 on the current code.
 # Stops the running copy, then launches the app again.
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 APP="$(pwd)/Poly15.app"
 
 echo "Stopping any running Poly15..."
@@ -19,7 +19,7 @@ if [ -n "$PIDS" ]; then
   sleep 1
 fi
 
-if curl -s -m 2 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1; then
+if curl -sf -m 2 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1; then
   echo "WARNING: something is still answering on port $PORT."
 else
   echo "Port $PORT is free."
@@ -29,10 +29,10 @@ echo "Launching Poly15..."
 open "$APP"
 sleep 4
 
-if curl -s -m 3 "http://127.0.0.1:$PORT/api/state" >/dev/null 2>&1; then
+if curl -sf -m 3 "http://127.0.0.1:$PORT/api/settings" >/dev/null 2>&1; then
   echo
   echo "Running. Current state:"
-  curl -s -m 3 "http://127.0.0.1:$PORT/api/state" | head -c 600
+  curl -sf -m 3 "http://127.0.0.1:$PORT/api/settings" | head -c 600
   echo
 else
   echo "Did not come up. Check ~/Library/Logs/Poly15.log"
