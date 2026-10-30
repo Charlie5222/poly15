@@ -94,6 +94,20 @@
   .ride .bets{display:flex; flex-wrap:wrap; gap:4px}
   .side{font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; white-space:nowrap}
   .side.UP{background:var(--up-soft); color:var(--up)} .side.DOWN{background:var(--down-soft); color:var(--down)}
+  /* The call: BUY UP / BUY DOWN */
+  .call{display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; margin:0 0 12px}
+  .buy{font-size:20px; font-weight:700; letter-spacing:.01em; padding:6px 16px; border-radius:12px; transition:background .4s var(--ease), color .4s var(--ease), box-shadow .4s var(--ease)}
+  .buy.UP{color:var(--up); box-shadow:inset 0 0 0 2px var(--up)} .buy.DOWN{color:var(--down); box-shadow:inset 0 0 0 2px var(--down)}
+  .buy.edge.UP{background:var(--up); color:#fff; box-shadow:0 4px 18px var(--up-soft)} .buy.edge.DOWN{background:var(--down); color:#fff; box-shadow:0 4px 18px var(--down-soft)}
+  .buy.flip{animation:flip .45s var(--ease)}
+  @keyframes flip{0%{transform:scale(.92); opacity:.4} 100%{transform:none; opacity:1}}
+  .callinfo{display:flex; flex-direction:column; gap:2px; min-width:0}
+  .callinfo .px{font-weight:600}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; width:max-content}
+  .badge.yes{background:var(--up-soft); color:var(--up)} .badge.no{background:var(--sunk); color:var(--ink-2)}
+  .badge.lock{background:var(--accent-soft); color:var(--accent)}
+  .ride .buy{font-size:14px; padding:3px 10px; border-radius:8px}
+  .ride .others{margin-top:6px}
 
   .hero{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
   @media (max-width:760px){.hero{grid-template-columns:1fr 1fr}}
@@ -388,6 +402,7 @@ function roundCard(r) {
     </div>
     <div>
       <div class="rhead"><h3>${r.horizon}-minute round</h3><span class="tiny">closes ${esc(timeOf(r.endMs))}</span></div>
+      <div class="call"><span class="buy">—</span><div class="callinfo"><span class="px tiny"></span><span class="badge no"></span></div></div>
       <div class="kv">
         <div>Price to beat<b class="num">${money(r.priceToBeat, 2)}</b></div>
         <div>BTC vs that<b class="num gap">—</b></div>
@@ -411,6 +426,22 @@ function updateRound(r) {
   $('.lu', c).textContent = 'Up ' + pct(m);
   $('.lm', c).textContent = r.modelProb != null ? 'model says ' + pct(r.modelProb) + ' Up' : '';
   $('.ld', c).textContent = 'Down ' + pct(m == null ? null : 1 - m);
+  renderCall($('.call', c), r.locked || r.call, !!r.locked);
+}
+const cents = (p) => (p * 100).toFixed(p < 0.1 ? 1 : 0) + '¢';
+/** BUY UP / BUY DOWN, the price, what it wins, and whether it is worth it. */
+function renderCall(el, k, locked) {
+  const b = $('.buy', el), px = $('.px', el), badge = $('.badge', el);
+  if (!k) { b.className = 'buy'; b.textContent = 'Waiting…'; px.textContent = 'needs a price and a BTC reading'; badge.hidden = true; return; }
+  const text = 'BUY ' + k.side;
+  const changed = b.textContent !== text;
+  b.textContent = text;
+  b.className = `buy ${k.side}${k.edge ? ' edge' : ''}`;
+  if (changed) { void b.offsetWidth; b.classList.add('flip'); }   // replay the pop when the side changes
+  px.textContent = `at ${cents(k.price + k.fee)} incl. fee · wins ${money(k.wins, 2)} on ${money(k.stake, 0)}`;
+  badge.hidden = false;
+  badge.className = 'badge ' + (k.edge ? 'yes' : 'no');
+  badge.textContent = (k.edge ? '✓ Edge after fees' : 'No edge: ' + (k.why || 'fee eats it')) + (locked ? ` · locked at ${k.entry}s` : ' · live');
 }
 function tickClocks() {
   const now = Date.now() + skew;
@@ -450,11 +481,16 @@ function renderNow(d) {
 
   $('#ridingCount').textContent = d.riding.length ? `${d.riding.length} waiting to settle` : '';
   $('#riding').innerHTML = d.riding.length ? d.riding.map((r) => {
+    const k = r.call;
     const ups = r.bets.filter((b) => b.side === 'UP').length;
+    const callHtml = k ? `<span class="buy ${k.side}${k.edge ? ' edge' : ''}">BUY ${k.side}</span>
+        <span class="tiny num" style="margin-left:8px">at ${cents(k.price + k.fee)} · wins ${money(k.wins, 2)}</span>
+        <span class="badge ${k.edge ? 'yes' : 'no'}" style="margin-left:8px">${k.edge ? '✓ Edge after fees' : 'No edge'}</span>` : '';
     return `<div class="ride"><div><b>${r.horizon}m · ${r.endMs ? esc(timeOf(r.endMs)) : ''}</b><div class="tiny">bet ${r.entry}s before close</div></div>
-      <div class="bets">${r.bets.map((b) => `<span class="side ${b.side}" title="${esc(nameOf(b.strategy))}: ${b.side} at ${(b.price * 100).toFixed(1)}¢">${esc(nameOf(b.strategy))}</span>`).join('')}
-      ${r.maker.map((m) => `<span class="side ${m.side}" style="opacity:${m.filled ? 1 : .45}" title="Limit order at ${(m.bid * 100).toFixed(1)}¢, ${m.filled ? 'filled' : 'not filled yet'}">${esc(nameOf(m.strategy))}${m.filled ? '' : ' …'}</span>`).join('')}</div>
-      <div class="tiny num">${ups} Up · ${r.bets.length - ups} Down</div></div>`;
+      <div>${callHtml}
+      <div class="bets others">${r.bets.map((b) => `<span class="side ${b.side}" title="${esc(nameOf(b.strategy))}: buy ${b.side} at ${(b.price * 100).toFixed(1)}¢">${esc(nameOf(b.strategy))}</span>`).join('')}
+      ${r.maker.map((m) => `<span class="side ${m.side}" style="opacity:${m.filled ? 1 : .45}" title="Limit order to buy ${m.side} at ${(m.bid * 100).toFixed(1)}¢, ${m.filled ? 'filled' : 'not filled yet'}">${esc(nameOf(m.strategy))}${m.filled ? '' : ' …'}</span>`).join('')}</div></div>
+      <div class="tiny num">others: ${ups} Up · ${r.bets.length - ups} Down</div></div>`;
   }).join('') : '<div class="empty">Nothing riding. Bets go on 2 minutes, 1 minute and 30 seconds before each round closes.</div>';
 
   const bf = d.backfill || {};

@@ -114,7 +114,11 @@ async function pollHorizon(mins) {
     depth: book ? { bids: book.bids.slice(0, 3), offers: book.offers.slice(0, 3) } : null,
   });
   const mkt = paper.marketProb(snap);
-  state.last[mins] = { ...snap, marketProb: mkt, modelProb: ctx.spot != null ? model.prob(paper.features(snap, ctx.vol), mkt) : null };
+  let call = null;
+  if (ctx.spot != null && r.status === 'MARKET_STATUS_OPEN') {
+    call = paper.callFrom(paper.makePredictions(snap, ctx.vol, model, settings.stake, { book }).predictions, model);
+  }
+  state.last[mins] = { ...snap, marketProb: mkt, modelProb: ctx.spot != null ? model.prob(paper.features(snap, ctx.vol), mkt) : null, call };
   state.polls++;
 
   // Resting maker orders on this round: did this quote trade through them?
@@ -335,8 +339,25 @@ const live = () => settings.horizons.map((h) => {
     horizon: h, slug: s.slug, endMs, windowStart: s.windowStart, status: s.status,
     priceToBeat: s.priceToBeat, spot: s.spot, marketProb: s.marketProb, modelProb: s.modelProb,
     yesQuote: s.yesQuote, noQuote: s.noQuote, feeCoefficient: s.feeCoefficient,
+    call: s.call, locked: lockedCall(s.slug),
   };
 });
+
+/** The call as placed at the latest entry time this round, if any yet. */
+function lockedCall(slug) {
+  for (const e of [...ALL_ENTRIES].sort((a, b) => a - b)) {
+    const rec = store.preds.get(keyOf(slug, e));
+    if (rec) {
+      const c = paper.callFrom(rec.predictions || [], null);
+      if (c && !rec.predictions.some((b) => b.strategy === 'model_edge')) {
+        c.why = rec.modelTrained < paper.MIN_TRAINED ? `model still learning (${rec.modelTrained} of ${paper.MIN_TRAINED} rounds)`
+          : !rec.informative ? 'model has nothing to add to the price yet' : 'not enough edge to cover the fee';
+      }
+      return c ? { ...c, entry: e } : null;
+    }
+  }
+  return null;
+}
 
 /** Bets on rounds that have not settled yet, one entry per round. */
 function riding() {
@@ -347,6 +368,7 @@ function riding() {
     out.push({
       slug: rec.slug, horizon: rec.horizon, entry: rec.entry, endMs: p?.endMs ?? null,
       marketProb: rec.marketProb, modelProb: rec.modelProb, priceToBeat: rec.priceToBeat ?? null,
+      call: paper.callFrom(rec.predictions || [], null),
       bets: (rec.predictions || []).map((b) => ({ strategy: b.strategy, side: b.side, price: b.price, stake: b.stake })),
       maker: (rec.maker || []).map((m) => ({ strategy: m.strategy, side: m.side, bid: m.bid, filled: !!m.filled })),
     });

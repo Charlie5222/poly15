@@ -138,6 +138,17 @@ Every round, each strategy picks a side at three entry times: **120, 60 and 30 s
 
 `test/safety.test.js` covers an untrained model, a trained but flat model, and a model with too few rounds; none may bet.
 
+### The BUY UP / BUY DOWN call
+
+Each round card on the Now tab shows one call, built by `callFrom()` in `paper.js`:
+
+- the side is `model_edge`'s when it bets, otherwise `model_direction`'s (the side the model thinks likelier), so it always reads **BUY UP** or **BUY DOWN**;
+- it shows the price including the fee and what a $10 bet would win;
+- a badge says **✓ Edge after fees** (filled, bright) only when `model_edge` would bet; otherwise **No edge** and the reason (still learning, nothing to add to the price, or not enough to cover the fee);
+- it updates live during the round and is **locked** to the latest bet placed once an entry time (120/60/30 s) passes.
+
+Until gate 1 passes, expect "No edge" nearly every round. The side alone is the model's opinion, not a recommendation.
+
 ### Fills
 
 **Taker bets walk the real order book** (`/v1/markets/{slug}/book`), fetched at entry. Buying Up consumes Yes offers; buying Down consumes Yes bids, converted to No prices. The stake is spent level by level until it runs out, and if the book is too thin the bet is for what was available. The average price paid, the fee per level, and the levels used are recorded.

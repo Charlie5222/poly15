@@ -551,6 +551,33 @@ function makePredictions(snap, vol, model, stake, opts = {}) {
 }
 
 /**
+ * The one call shown to a person: BUY UP or BUY DOWN, always.
+ * If the model has an edge after fees (it placed a model_edge bet), that bet
+ * is the call and `edge` is true. Otherwise the call is the side the model
+ * thinks likelier, and `edge` is false with the reason it would not bet.
+ * `wins` is the profit in dollars if the call is right; a loss costs the stake.
+ */
+function callFrom(predictions, model) {
+  const e = predictions.find((b) => b.strategy === 'model_edge');
+  const d = e || predictions.find((b) => b.strategy === 'model_direction');
+  if (!d) return null;
+  const pUp = d.modelProb != null && !e ? d.modelProb : null;
+  const prob = e ? e.modelProb : pUp == null ? null : d.side === 'UP' ? pUp : 1 - pUp;
+  const need = d.price + d.fee;
+  let why = null;
+  if (!e && model) {
+    const trained = model.trained;
+    if (trained < MIN_TRAINED) why = `model still learning (${trained} of ${MIN_TRAINED} rounds)`;
+    else if (model && !model.isInformative()) why = 'model has nothing to add to the price yet';
+    else why = 'not enough edge to cover the fee';
+  }
+  return {
+    side: d.side, edge: !!e, price: d.price, fee: d.fee, stake: d.stake,
+    wins: d.shares - d.stake, prob, need, why,
+  };
+}
+
+/**
  * Limit orders resting at the bid. Makers pay no fee, but only get filled when
  * someone sells to them, which happens most when the price is moving against
  * them. Simulated conservatively: filled only if a LATER quote shows the
@@ -624,7 +651,7 @@ function summarize(rows) {
 }
 
 module.exports = {
-  features, FEATURE_KEYS, LABEL, Model, STRATEGIES, BASELINES, DESCRIBE, entryPrice, makePredictions,
+  callFrom, features, FEATURE_KEYS, LABEL, Model, STRATEGIES, BASELINES, DESCRIBE, entryPrice, makePredictions,
   score, summarize, sigmoid, logit, clip, marketProb, spreadWidth, calibration, calibrationGate,
   takerFeePerShare, breakevenWinRate, num, normCdf, spotContext, seqTest, fillFromBook,
   makerOrders, makerFillsAt, logLoss,
