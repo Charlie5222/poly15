@@ -15,6 +15,9 @@ const us = require('./us');
 const paper = require('./paper');
 const history = require('./history');
 const { Store, keyOf, PRIMARY_ENTRY } = require('./store');
+const { Sessions, report: sessionReport } = require('./session');
+const { Feeds, leadLag } = require('./feeds');
+const { spawn } = require('child_process');
 
 const DATA = process.env.POLY15_DATA || path.join(__dirname, 'data');
 const HIST_DIR = path.join(DATA, 'history');
@@ -29,6 +32,9 @@ const BACKFILL_EVERY = 60 * 60000;
 const NO_BACKFILL = process.env.POLY15_NO_BACKFILL === '1';
 
 const store = new Store(DATA);
+const sessions = new Sessions(DATA);
+const feeds = new Feeds(DATA);
+const SESSION_FAST_MS = 3000;     // during a session, poll this often in a round's last few minutes
 
 const DEFAULTS = { recording: true, horizons: [15, 5], entries: [120, 60, 30], stake: 10, stopAfter: 0, stopBaseline: 0 };
 let settings = { ...DEFAULTS };
@@ -56,7 +62,9 @@ async function refreshBrti() {
   if (from > now - 1) return;
   try {
     const pts = await us.fetchBrti(from, 0, '1S');
-    for (const p of pts) if (!brti.length || p.t > brti[brti.length - 1].t) brti.push({ t: p.t, v: p.v });
+    const fresh = pts.filter((p) => !brti.length || p.t > brti[brti.length - 1].t);
+    for (const p of fresh) brti.push({ t: p.t, v: p.v });
+    if (sessions.active && fresh.length) feeds.brti(fresh);
     while (brti.length && brti[0].t < now - 900) brti.shift();
   } catch (e) { note(`BRTI: ${e.message}`); }
 }
@@ -304,6 +312,9 @@ function msUntilNext() {
   let wake = now + POLL_MS;
   for (const h of settings.horizons) {
     const end = us.roundStart(new Date(now), h).getTime() + h * 60000;
+    // In a session, watch the end of each round closely: how fast the market's
+    // price reacts to BTC is the thing worth measuring.
+    if (sessions.active && end - now <= 150000) wake = Math.min(wake, now + SESSION_FAST_MS);
     for (const e of settings.entries) {
       const t = end - e * 1000 + 400;
       if (t > now + 200 && t < wake) wake = t;
@@ -380,6 +391,7 @@ function apiNow() {
   return {
     recording: settings.recording, stoppedReason: state.stoppedReason, error: state.lastError || store.lastError,
     spot: sp.spot, spotAt: sp.spotAt, live: live(), riding: riding(), serverTime: Date.now(),
+    session: sessions.active ? { startedAt: sessions.current.startedAt } : null,
     // Gate 1: until the model beats the market on live rounds, every call is unproven.
     proven: !!bench.beatsMarket, provenDetail: `${bench.n} of ${paper.MIN_TRAINED} live rounds checked`,
     counts: {
@@ -490,6 +502,59 @@ function apiModel() {
   };
 }
 
+// ---------------- sessions: an overnight test with a pretend bankroll ----------------
+
+let awake = null;
+/** Keep the Mac from sleeping while a session runs. Display may still sleep. */
+function stayAwake(on) {
+  if (on && !awake && process.platform === 'darwin') {
+    try {
+      awake = spawn('/usr/bin/caffeinate', ['-ims', '-w', String(process.pid)], { stdio: 'ignore' });
+      awake.on('exit', () => { awake = null; });
+    } catch { awake = null; }
+  }
+  if (!on && awake) { try { awake.kill(); } catch {} awake = null; }
+}
+
+function startSession(p) {
+  const bankroll = Number.isFinite(p.bankroll) && p.bankroll > 0 ? p.bankroll : 10000;
+  const stake = Number.isFinite(p.stake) && p.stake > 0 && p.stake <= bankroll ? p.stake : 10;
+  if (sessions.active) stopSession();
+  settings.stake = stake; settings.recording = true; settings.stopAfter = 0;
+  state.stoppedReason = null;
+  saveSettings();
+  const w = {};
+  for (const k of paper.FEATURE_KEYS) w[k] = model.w[k] || 0;
+  sessions.start({ bankroll, stake, weights: w });
+  feeds.start(); stayAwake(true);
+  note(`session started: $${bankroll.toLocaleString()} bankroll, $${stake} a bet`);
+}
+function stopSession() {
+  if (!sessions.active) return;
+  const rep = apiSession(true).report;
+  sessions.stop(rep);
+  feeds.stop(); stayAwake(false);
+  note('session ended');
+}
+
+let sessionCache = { k: '', v: null };
+function apiSession(fresh) {
+  const cur = sessions.current;
+  const k = `${store.version}|${cur?.id}|${cur?.endedAt}|${Math.floor(Date.now() / 60000)}`;
+  if (!fresh && sessionCache.k === k) return sessionCache.v;
+  const rep = cur ? sessionReport(cur, {
+    scored: store.scored, preds: store.preds, rounds: store.rounds, statusOf, model, parseSlug: us.parseSlug,
+  }) : null;
+  const from = cur ? Date.parse(cur.startedAt) : 0, to = cur?.endedAt ? Date.parse(cur.endedAt) : Date.now();
+  const v = {
+    active: sessions.active, current: cur, report: rep,
+    feeds: cur ? { ...leadLag(feeds, from, to), recording: feeds.running, last: feeds.last } : null,
+    awake: !!awake, past: sessions.past(),
+  };
+  sessionCache = { k, v };
+  return v;
+}
+
 const json = (res, obj, code = 200) => {
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(obj));
@@ -561,6 +626,21 @@ const server = http.createServer(async (req, res) => {
       }).filter(Boolean);
       return json(res, { candles: rows, marks, spot: spotNow().spot });
     }
+    if (req.method === 'GET' && url.pathname === '/api/session') return json(res, apiSession(url.searchParams.get('fresh') === '1'));
+    if (req.method === 'POST' && url.pathname === '/api/session') {
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 1e4) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const p = JSON.parse(body || '{}');
+          if (p.action === 'start') startSession(p);
+          else if (p.action === 'stop') stopSession();
+          else return json(res, { error: 'action must be start or stop' }, 400);
+          json(res, apiSession(true));
+        } catch (e) { json(res, { error: e.message }, 400); }
+      });
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/log') return json(res, state.log.slice(-60).reverse());
     if (req.method === 'POST' && url.pathname === '/api/settings') {
       let body = '';
@@ -582,10 +662,11 @@ if (require.main === module) {
     console.log(`poly15 on http://127.0.0.1:${PORT}`);
     console.log(`horizons ${settings.horizons.join('m, ')}m · entries ${settings.entries.join('s, ')}s · stake $${settings.stake} · data ${DATA}`);
     loop();
+    if (sessions.active) { feeds.start(); stayAwake(true); note('session resumed after restart'); }
     setTimeout(() => recheckOldOutcomes().catch((e) => note(`re-check: ${e.message}`)), 3000);
     setTimeout(runHistory, 15000);
     setInterval(runHistory, BACKFILL_EVERY);
   });
 }
 
-module.exports = { allowed, applySettings, settle, apiResults, apiModel, apiNow, store, model, settings };
+module.exports = { allowed, applySettings, settle, apiResults, apiModel, apiNow, apiSession, startSession, stopSession, store, model, settings, sessions, feeds };

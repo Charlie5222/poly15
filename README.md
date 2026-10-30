@@ -72,11 +72,12 @@ The model does not predict from scratch. It predicts a **correction to the marke
 
 ## The app
 
-Three tabs, with settings behind the gear. Follows macOS light and dark mode.
+Four tabs, with settings behind the gear. Follows macOS light and dark mode.
 
 | tab | shows |
 |---|---|
 | Now | both live rounds with countdowns and the model's view, bets riding, BTC candles with the opening price marked |
+| Session | start an overnight test with a pretend bankroll (default $10,000, $10 a bet); the report shows bankroll over time, win rate vs needed, every pattern checked, the exchange lead check and sell-on-flip |
 | Results | paper P&L and win rate against the rate needed, per-strategy verdicts, filters for entry time, horizon and v1 data, the backtest |
 | Model | the three gates, gate 1's progress, calibration, what the model has learned |
 | ⚙︎ | recording on/off, stop after N rounds, stake, entry times, horizons |
@@ -89,6 +90,8 @@ Three tabs, with settings behind the gear. Follows macOS light and dark mode.
 | `us.js` | Polymarket US adapter: slugs, fetching, parsing, fee formula |
 | `paper.js` | features, the model, the sequential test, strategies, order-book fills, scoring, calibration |
 | `store.js` | the data files: read once at startup, held in memory, appended to |
+| `session.js` | test sessions: saved window, bankroll curve, pattern slices, findings, sell-on-flip |
+| `feeds.js` | during a session, 1-second Coinbase / Kraken / Binance.US prices next to BRTI, and the lead check |
 | `history.js` | backfill of past rounds, walk-forward backtest |
 | `ui.html` | the whole front end: one file, no build step, three tabs, canvas candlestick chart |
 | `test/` | offline tests, including one against a real captured market payload |

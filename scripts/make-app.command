@@ -7,14 +7,14 @@ cd "$(dirname "$0")/.."
 APP="Poly15.app"
 echo "Building $APP in $(pwd)"
 
-for f in server.js us.js paper.js store.js history.js ui.html; do
+for f in server.js us.js paper.js store.js history.js session.js feeds.js ui.html; do
   [ -f "$f" ] || { echo "ERROR: missing $f. Keep all the files in one folder."; read -r -p "Press return." _ || true; exit 1; }
 done
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/app"
 
-cp server.js us.js paper.js store.js history.js ui.html "$APP/Contents/Resources/app/"
+cp server.js us.js paper.js store.js history.js session.js feeds.js ui.html "$APP/Contents/Resources/app/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

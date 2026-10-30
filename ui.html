@@ -192,6 +192,33 @@
   .toast{position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); opacity:0; background:var(--ink); color:var(--bg);
     padding:8px 16px; border-radius:99px; font-size:13px; transition:all .35s var(--ease); z-index:40; pointer-events:none}
   .toast.on{opacity:1; transform:translate(-50%,0)}
+  /* Session */
+  .start{display:grid; grid-template-columns:1fr auto; gap:20px; align-items:end}
+  @media (max-width:760px){.start{grid-template-columns:1fr}}
+  .fields{display:flex; gap:14px; flex-wrap:wrap}
+  .field{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-2)}
+  .field input{width:140px; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--sunk); font:inherit; font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums}
+  .btn{border:0; border-radius:12px; padding:11px 22px; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; transition:transform .2s var(--ease), box-shadow .3s var(--ease)}
+  .btn:hover{transform:translateY(-1px); box-shadow:0 6px 18px var(--accent-soft)}
+  .btn:active{transform:scale(.97)}
+  .btn.quiet{background:var(--sunk); color:var(--ink)}
+  .btn.stop{background:var(--down-soft); color:var(--down)}
+  .checks{margin:14px 0 0; padding:0; list-style:none; display:grid; gap:6px; font-size:12.5px; color:var(--ink-2)}
+  .checks li::before{content:"✓"; color:var(--up); font-weight:700; margin-right:8px}
+  .live-dot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--up); margin-right:8px; animation:pulse 2s infinite; vertical-align:1px}
+  .finds{display:grid; gap:8px}
+  .find{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start; padding:10px 12px; border-radius:12px; background:var(--sunk); font-size:13px; animation:in .4s var(--ease)}
+  .find .tag{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:99px; margin-top:1px}
+  .tag.promising{background:var(--up); color:#fff} .tag.hint{background:var(--up-soft); color:var(--up)}
+  .tag.avoid{background:var(--down-soft); color:var(--down)} .tag.note{background:var(--accent-soft); color:var(--accent)}
+  .pgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px}
+  .pgroup h3{margin:0 0 6px; font-size:13px}
+  .prow{display:grid; grid-template-columns:1fr 46px 92px 64px; gap:8px; align-items:center; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:none}
+  .prow .wr{min-width:0}
+  #bankChart{width:100%; height:220px; display:block}
+  .legend{display:flex; gap:16px; font-size:12px; color:var(--ink-2); margin-top:6px}
+  .legend i{display:inline-block; width:12px; height:3px; border-radius:2px; margin-right:6px; vertical-align:3px}
   .empty{padding:20px 4px; text-align:center; color:var(--ink-3); font-size:13px}
 
   @media (prefers-reduced-motion: reduce){ *, *::before, *::after{animation:none !important; transition:none !important} }
@@ -204,6 +231,7 @@
     <div class="mid">
       <div class="seg" id="tabs" role="tablist"><span class="thumb"></span>
         <button role="tab" data-v="now" aria-selected="true">Now</button>
+        <button role="tab" data-v="session" aria-selected="false">Session</button>
         <button role="tab" data-v="results" aria-selected="false">Results</button>
         <button role="tab" data-v="model" aria-selected="false">Model</button>
       </div>
@@ -229,6 +257,84 @@
     <div class="card">
       <div class="rhead"><h2>Bets riding</h2><span class="tiny" id="ridingCount"></span></div>
       <div class="ridelist" id="riding"></div>
+    </div>
+  </section>
+
+  <!-- SESSION: an overnight test with a pretend bankroll -->
+  <section class="view" id="v-session">
+    <div class="card" id="sessStart" hidden>
+      <div class="start">
+        <div>
+          <h2>Start a test session</h2>
+          <p class="sub">The app paper-bets every round with a pretend bankroll and keeps score. Leave it running, then come back to a report: profit, win rate, and which conditions it did well or badly in. No real money moves.</p>
+          <div class="fields">
+            <label class="field">Starting bankroll<input type="number" id="ssBank" value="10000" min="100" step="100"></label>
+            <label class="field">Each bet<input type="number" id="ssStake" value="10" min="1" step="1"></label>
+          </div>
+        </div>
+        <button class="btn" id="ssGo">Start session</button>
+      </div>
+      <ul class="checks">
+        <li>Keeps the Mac awake while it runs (the screen can still turn off)</li>
+        <li>Records Coinbase, Kraken and Binance.US prices each second, to test whether any of them move before the price these rounds settle on</li>
+        <li>Watches the last 2½ minutes of every round every 3 seconds</li>
+        <li>Picks up where it left off if the app restarts</li>
+      </ul>
+      <p class="tiny" style="margin:12px 0 0">For a night: keep it plugged in and the lid open. Closing the lid sleeps the Mac no matter what.</p>
+    </div>
+    <div id="sessBody" hidden>
+      <div class="card">
+        <div class="rhead"><h2 id="ssTitle"></h2><span><button class="btn stop" id="ssStop" hidden>End session</button><button class="btn quiet" id="ssNew" hidden>New session</button></span></div>
+        <p class="sub" id="ssSub"></p>
+        <div class="hero">
+          <div class="stat"><div class="l">Bankroll</div><div class="v num" id="ssBankNow">—</div><div class="s" id="ssBankFrom"></div></div>
+          <div class="stat"><div class="l">Profit</div><div class="v num" id="ssPnl">—</div><div class="s" id="ssRoi"></div></div>
+          <div class="stat"><div class="l">Win rate</div><div class="v num" id="ssWin">—</div><div class="s" id="ssNeed"></div></div>
+          <div class="stat"><div class="l">Rounds</div><div class="v num" id="ssRounds">—</div><div class="s" id="ssBets"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Bankroll over the session</h2>
+        <p class="sub">Two ways of following the app, each starting with the same bankroll. "Every BUY call" bets every time. "Good price only" bets only when the call is marked Good price.</p>
+        <svg id="bankChart" role="img" aria-label="Bankroll over time"></svg>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Every BUY call <b class="num" id="lgEvery"></b></span><span><i style="background:var(--up)"></i>Good price only <b class="num" id="lgGood"></b></span></div>
+      </div>
+      <div class="card">
+        <h2>What it found</h2>
+        <p class="sub">Conditions where the BUY call did better or worse than its break-even. With dozens of slices, a few will look good by luck, so "could still be luck" means exactly that.</p>
+        <div class="finds" id="ssFinds"></div>
+      </div>
+      <div class="card">
+        <h2>Every pattern it checked</h2>
+        <p class="sub">The BUY call's bets split every way that might matter. The bar is the win rate; the tick is what it needed.</p>
+        <div class="pgrid" id="ssPatterns"></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>Faster price check</h2>
+          <p class="sub">Does any exchange move before the settlement index? A head start of a second or more could be a real edge.</p>
+          <div id="ssFeeds"></div>
+        </div>
+        <div class="card">
+          <h2>Selling when the call flips</h2>
+          <p class="sub">Instead of holding a bet to the end, sell it at the next check if the call has switched sides.</p>
+          <div id="ssSell"></div>
+        </div>
+      </div>
+      <div class="card">
+        <details>
+          <summary><h2>Test strategies this session</h2></summary>
+          <div id="ssStrats" style="margin-top:12px"></div>
+        </details>
+      </div>
+      <div class="card">
+        <details>
+          <summary><h2>How the model changed</h2></summary>
+          <p class="sub" style="margin-top:12px">It refits after every round. These are its weights when the session began and now.</p>
+          <div id="ssWeights"></div>
+        </details>
+      </div>
+      <div class="card" id="ssPastCard" hidden><h2>Earlier sessions</h2><div id="ssPast" style="margin-top:8px"></div></div>
     </div>
   </section>
 
@@ -500,7 +606,7 @@ function renderNow(d) {
   skew = d.serverTime - Date.now();
   const st = $('#status');
   st.className = 'status ' + (d.error ? 'err' : d.recording ? 'on' : '');
-  $('#statusText').textContent = d.error ? 'Connection trouble' : d.recording ? (d.stoppedReason ? 'Recording, not betting' : 'Recording') : 'Paused';
+  $('#statusText').textContent = d.error ? 'Connection trouble' : d.recording ? (d.stoppedReason ? 'Recording, not betting' : d.session ? 'Session running' : 'Recording') : 'Paused';
   st.title = d.error || '';
   if (d.spot != null) tween($('#btc'), d.spot, (v) => money(v, 2));
   const key = d.live.map((r) => r.slug || r.horizon).join() + '|' + (settings?.entries || []).join();
@@ -641,6 +747,92 @@ async function loadResults() {
     }).join('')}</tbody></table>` : '<div class="empty">None yet.</div>';
 }
 
+/* ---------------- Session ---------------- */
+const hrs = (h) => h < 1 ? `${Math.round(h * 60)} min` : `${h.toFixed(1)} h`;
+function wrBar(winRate, need) {
+  const good = winRate != null && need != null && winRate > need;
+  return `<div class="wr"><span class="t num">${pct(winRate, 0)} <span class="muted">/ ${pct(need, 0)}</span></span>
+    <span class="m"><i class="${good ? 'good' : ''}" style="width:${clamp01(winRate) * 100}%"></i><em style="left:${clamp01(need) * 100}%"></em></span></div>`;
+}
+function bankChart(every, good, start) {
+  const svg = $('#bankChart'), W = svg.clientWidth || 600, H = 220, L = 6, R = 70, T = 10, B = 22;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const series = [[every?.points || [], 'var(--accent)'], [good?.points || [], 'var(--up)']];
+  const all = series.flatMap(([p]) => p.map((x) => x.v));
+  if (all.length < 2) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">The line appears after the first settled bets</text>`; return; }
+  let lo = Math.min(start, ...all), hi = Math.max(start, ...all);
+  const pad = Math.max(5, (hi - lo) * .12); lo -= pad; hi += pad;
+  const ts = series.flatMap(([p]) => p.map((x) => x.t).filter(Boolean));
+  const t0 = Math.min(...ts), t1 = Math.max(...ts, t0 + 1);
+  const x = (t) => L + ((t ?? t0) - t0) / (t1 - t0) * (W - L - R), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  let g = `<line x1="${L}" x2="${W - R}" y1="${y(start)}" y2="${y(start)}" stroke="var(--ink-3)" stroke-dasharray="3 4"/>
+    <text x="${W - R + 6}" y="${y(start) + 3}">${money(start)}</text>`;
+  for (let k = 0; k <= 4; k++) { const v = lo + (hi - lo) * k / 4; if (Math.abs(y(v) - y(start)) > 12) g += `<text x="${W - R + 6}" y="${y(v) + 3}">${money(v)}</text>`; }
+  for (let k = 0; k <= 4; k++) { const t = t0 + (t1 - t0) * k / 4; g += `<text x="${x(t)}" y="${H - 6}" text-anchor="${k === 0 ? 'start' : k === 4 ? 'end' : 'middle'}">${esc(timeOf(t))}</text>`; }
+  for (const [p, c] of series) {
+    if (p.length < 2) continue;
+    const d = p.map((pt, i) => `${i ? 'L' : 'M'}${x(pt.t).toFixed(1)},${y(pt.v).toFixed(1)}`).join('');
+    g += `<path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="draw"/>`;
+  }
+  svg.innerHTML = g;
+}
+let sessData = null;
+async function loadSession() {
+  let d;
+  try { d = sessData = await api('/api/session'); } catch { return; }
+  const cur = d.current, r = d.report;
+  $('#sessStart').hidden = !!d.active;
+  $('#sessBody').hidden = !cur;
+  if (!cur) return;
+  $('#ssStop').hidden = !d.active; $('#ssNew').hidden = d.active;
+  $('#ssTitle').innerHTML = d.active ? `<span class="live-dot"></span>Session running` : 'Session report';
+  const started = new Date(cur.startedAt);
+  $('#ssSub').textContent = `Started ${started.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`
+    + (cur.endedAt ? `, ended ${new Date(cur.endedAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '')
+    + ` · ${hrs(r.hours)} · ${money(cur.bankroll)} bankroll, ${money(cur.stake)} a bet`
+    + (d.active ? (d.awake ? ' · keeping the Mac awake' : ' · could not keep the Mac awake') : '')
+    + (r.pending ? ` · ${r.pending} bet${r.pending > 1 ? 's' : ''} waiting to settle` : '');
+  const e = r.every;
+  tween($('#ssBankNow'), e.n ? e.end : cur.bankroll, (v) => money(v, 2));
+  $('#ssBankFrom').textContent = `from ${money(cur.bankroll)}` + (e.n ? ` · worst dip ${money(e.maxDrawdown, 0)}` : '');
+  tween($('#ssPnl'), e.n ? e.pnl : 0, (v) => signed(v, 2));
+  $('#ssPnl').className = 'v num ' + (e.pnl > 0 ? 'up' : e.pnl < 0 ? 'down' : '');
+  $('#ssRoi').textContent = e.n ? `${(e.roi * 100).toFixed(1)}¢ per dollar bet` : 'no bets settled yet';
+  tween($('#ssWin'), e.n ? e.winRate : null, (v) => pct(v, 1));
+  $('#ssNeed').textContent = e.n ? `needs ${pct(e.need, 1)} to break even` : '';
+  tween($('#ssRounds'), r.rounds, (v) => Math.round(v).toLocaleString());
+  $('#ssBets').textContent = `${(e.n || 0).toLocaleString()} bets · ${e.wins || 0} won, ${(e.n || 0) - (e.wins || 0)} lost`;
+  $('#lgEvery').textContent = e.n ? signed(e.pnl) : '';
+  $('#lgGood').textContent = r.good.n ? `${signed(r.good.pnl)} on ${r.good.n} bets` : 'no bets yet';
+  bankChart(r.every, r.good, cur.bankroll);
+
+  $('#ssFinds').innerHTML = r.findings.length ? r.findings.map((f) => `<div class="find"><span class="tag ${f.kind}">${{ promising: 'Promising', hint: 'Maybe', avoid: 'Loses', note: 'Note' }[f.kind]}</span><span>${f.group ? `<span class="tiny">${esc(f.group)}</span><br>` : ''}${esc(f.text)}</span></div>`).join('')
+    : `<div class="empty">Patterns show up once each condition has ${15}+ settled bets.</div>`;
+  $('#ssPatterns').innerHTML = r.patterns.map((g) => `<div class="pgroup"><h3>${esc(g.title)}</h3>${g.rows.map((x) => `<div class="prow"><span>${esc(x.label)}</span><span class="num tiny">${x.n}</span>${wrBar(x.winRate, x.need)}<span class="num ${x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : ''}" style="text-align:right">${signed(x.pnl)}</span></div>`).join('')}</div>`).join('')
+    || '<div class="empty">Nothing settled yet.</div>';
+
+  const f = d.feeds;
+  if (!f || !f.sources?.length) $('#ssFeeds').innerHTML = `<div class="empty">${esc(f?.note || 'Starts with the session.')}${f?.recording ? ' Recording now.' : ''}</div>`;
+  else $('#ssFeeds').innerHTML = `<table><thead><tr><th>Exchange</th><th>Head start</th><th>Match</th><th>Typical gap</th></tr></thead><tbody>${f.sources.map((s) => s.note ? `<tr><td>${esc(s.name)}</td><td colspan="3" class="tiny">${esc(s.note)}</td></tr>`
+      : `<tr><td>${esc(s.name)}</td><td class="num"><b>${s.bestLag ? s.bestLag + ' s' : 'none'}</b></td><td class="num">${s.bestR.toFixed(2)}</td><td class="num">${s.medianGap != null ? signed(s.medianGap, 0) : '—'}</td></tr>`).join('')}</tbody></table>
+      <p class="tiny" style="margin:10px 0 0">${(f.seconds / 3600).toFixed(1)} hours of 1-second prices. "Head start" is how many seconds earlier its moves best match the index's moves; "match" runs 0 to 1.</p>`;
+  const s = r.sellOnFlip;
+  $('#ssSell').innerHTML = s.n ? `<div class="hero" style="grid-template-columns:1fr 1fr"><div class="stat"><div class="l">Times it would have sold</div><div class="v num">${s.n}</div></div>
+      <div class="stat"><div class="l">Versus holding</div><div class="v num ${s.better > 0 ? 'up' : s.better < 0 ? 'down' : ''}">${signed(s.better)}</div><div class="s">holding ${signed(s.holdPnl)}, selling ${signed(s.sellPnl)}</div></div></div>`
+    : '<div class="empty">No flips with a later price yet.</div>';
+  $('#ssStrats').innerHTML = stratTable(r.strategies.map((x) => ({ ...x, verdict: 'too few' })), true);
+  $('#ssWeights').innerHTML = `<table><thead><tr><th>Input</th><th>At start</th><th>Now</th></tr></thead><tbody>${r.weights.map((w) => `<tr><td>${esc(w.label)}</td><td class="num">${w.start == null ? '—' : w.start.toFixed(3)}</td><td class="num">${w.now.toFixed(3)}</td></tr>`).join('')}</tbody></table>`;
+  $('#ssPastCard').hidden = !d.past.length;
+  $('#ssPast').innerHTML = d.past.map((p) => `<div class="tiny">${esc(new Date(p.startedAt).toLocaleString())} to ${esc(new Date(p.endedAt).toLocaleString())}</div>`).join('');
+}
+async function sessionAction(body, msg) {
+  try { sessData = await api('/api/session', { method: 'POST', headers: POST, body: JSON.stringify(body) }); toast(msg); await loadSettings(); refresh(true); loadSession(); }
+  catch { toast('Could not do that'); }
+}
+$('#ssGo').onclick = () => sessionAction({ action: 'start', bankroll: Number($('#ssBank').value) || 10000, stake: Number($('#ssStake').value) || 10 }, 'Session started');
+$('#ssStop').onclick = () => { if (confirm('End this session? Its report is kept.')) sessionAction({ action: 'stop' }, 'Session ended'); };
+$('#ssNew').onclick = () => { $('#sessStart').hidden = false; $('#sessStart').scrollIntoView({ behavior: 'smooth' }); };
+
 /* ---------------- Model ---------------- */
 const CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 let modelData = null;
@@ -720,7 +912,7 @@ async function loadLog() {
 }
 
 /* ---------------- Refresh only what is on screen ---------------- */
-const last = { now: 0, chart: 0, results: 0, model: 0 };
+const last = { now: 0, chart: 0, results: 0, model: 0, session: 0 };
 async function refresh(force) {
   const t = Date.now();
   if (force || t - last.now > 3000) {
@@ -731,6 +923,7 @@ async function refresh(force) {
   if (tab === 'now' && (force || t - last.chart > 30000)) { last.chart = t; drawChart(); }
   if (tab === 'results' && (force || t - last.results > 15000)) { last.results = t; loadResults(); }
   if (tab === 'model' && (force || t - last.model > 30000)) { last.model = t; loadModel(); }
+  if (tab === 'session' && (force || t - last.session > 15000)) { last.session = t; loadSession(); }
 }
 setInterval(() => { if (!document.hidden) refresh(false); }, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(true); });

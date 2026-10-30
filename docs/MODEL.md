@@ -186,6 +186,12 @@ The test is the same anytime-valid boundary as gate 1, at `α = 0.05 / k` for `k
 
 Results default to **v2 data only**. v1 bets used event-level quotes that went stale or one-sided in the final minute (one side null, the other at 1¢ or 99¢), so $10 "bought" at 1¢ could pay about $990. Those results are not believable and are hidden unless "Include v1" is selected.
 
+## Test sessions
+
+A session is a time window with a pretend bankroll. Every bet placed inside it counts, re-expressed at the session's stake, and the report is rebuilt from the recorded bets, so a restart loses nothing. While one runs the app keeps the Mac awake (`caffeinate -ims`), polls every 3 seconds in each round's last 2½ minutes, and records 1-second prices from Coinbase, Kraken and Binance.US next to BRTI (`data/feeds/`).
+
+The report slices the BUY call's bets by entry time, round length, side, price paid, price verdict, model vs market, volatility, distance from the line and time of night. A slice becomes a finding at 15+ bets; "promising" means its profit is 2+ standard errors from zero, and with ~25 slices about one will reach that by luck. Whether the call flipped is shown but never a finding, since it is only known after the round. The lead check correlates each exchange's 1-second move k seconds earlier with BRTI's move now; the best k is its head start. Sell-on-flip values a held bet at the bid recorded at the next check, minus the taker fee.
+
 ## Appendix: model v1, and why it was replaced
 
 v1 took one stochastic gradient step per round with a decaying learning rate (`0.10 / (1 + n/1200)`) on hand-scaled features. Its main input averaged about 0.09, so the weight needed for a 15-point edge (about 6.7) was reached far too slowly: gate 1 detected that edge 0 times in 60 at 2,000 rounds, and needed about 6,000. A full refit on standardized features removes the learning-speed problem entirely.
