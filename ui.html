@@ -309,6 +309,12 @@
         <p class="sub">The BUY call's bets split every way that might matter. The bar is the win rate; the tick is what it needed.</p>
         <div class="pgrid" id="ssPatterns"></div>
       </div>
+      <div class="card">
+        <h2>Every-minute test</h2>
+        <p class="sub">At each whole minute left in a round, the call is written down as a pretend bet. These are kept apart from the totals above, and the model doesn't learn from them. The bar is the win rate; the tick is what it needed.</p>
+        <div id="ssLadderBest"></div>
+        <div class="pgrid" id="ssLadder"></div>
+      </div>
       <div class="grid2">
         <div class="card">
           <h2>Faster price check</h2>
@@ -810,6 +816,16 @@ async function loadSession() {
     : `<div class="empty">Patterns show up once each condition has ${15}+ settled bets.</div>`;
   $('#ssPatterns').innerHTML = r.patterns.map((g) => `<div class="pgroup"><h3>${esc(g.title)}</h3>${g.rows.map((x) => `<div class="prow"><span>${esc(x.label)}</span><span class="num tiny">${x.n}</span>${wrBar(x.winRate, x.need)}<span class="num ${x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : ''}" style="text-align:right">${signed(x.pnl)}</span></div>`).join('')}</div>`).join('')
     || '<div class="empty">Nothing settled yet.</div>';
+
+  const lad = d.ladder;
+  const ladRows = lad?.rows || [];
+  const b = lad?.best;
+  $('#ssLadderBest').innerHTML = b ? `<div class="find" style="margin-bottom:12px"><span class="tag ${b.strong ? 'promising' : 'hint'}">${b.strong ? 'Promising' : 'Maybe'}</span><span>Best so far: <b>${b.min} min left</b> on ${b.h}-minute rounds, won ${pct(b.winRate, 1)} vs ${pct(b.need, 1)} needed, ${signed(b.pnl)} on ${b.n} bets.${b.strong ? '' : ` With ${lad.tested} minutes tested, one usually looks good by luck. It has to keep winning on new nights.`}</span></div>` : '';
+  $('#ssLadder').innerHTML = ladRows.length ? [15, 5].map((h) => {
+    const rows = ladRows.filter((x) => x.h === h);
+    if (!rows.length) return '';
+    return `<div class="pgroup"><h3>${h}-minute rounds</h3><div class="prow tiny" style="color:var(--ink-3)"><span>Time left</span><span>Bets</span><span>BUY call</span><span style="text-align:right">Profit</span></div>${rows.map((x) => `<div class="prow" title="Good price only: ${x.good.n ? signed(x.good.pnl) + ' on ' + x.good.n : 'none'} · Market favourite: ${x.fav.n ? signed(x.fav.pnl) : '—'}"><span>${x.min} min</span><span class="num tiny">${x.call.n || 0}</span>${x.call.n ? wrBar(x.call.winRate, x.call.need) : '<span></span>'}<span class="num ${x.call.pnl > 0 ? 'up' : x.call.pnl < 0 ? 'down' : ''}" style="text-align:right">${x.call.n ? signed(x.call.pnl) : '—'}</span></div>`).join('')}</div>`;
+  }).join('') : `<div class="empty">${lad?.waiting ? `${lad.waiting} pretend bets waiting for their rounds to settle.` : 'Starts at the next whole minute.'}</div>`;
 
   const f = d.feeds;
   if (!f || !f.sources?.length) $('#ssFeeds').innerHTML = `<div class="empty">${esc(f?.note || 'Starts with the session.')}${f?.recording ? ' Recording now.' : ''}</div>`;

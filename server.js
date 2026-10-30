@@ -17,6 +17,7 @@ const history = require('./history');
 const { Store, keyOf, PRIMARY_ENTRY } = require('./store');
 const { Sessions, report: sessionReport } = require('./session');
 const { Feeds, leadLag } = require('./feeds');
+const { Ladder, record: ladderRecord, report: ladderReport } = require('./ladder');
 const { spawn } = require('child_process');
 
 const DATA = process.env.POLY15_DATA || path.join(__dirname, 'data');
@@ -34,6 +35,7 @@ const NO_BACKFILL = process.env.POLY15_NO_BACKFILL === '1';
 const store = new Store(DATA);
 const sessions = new Sessions(DATA);
 const feeds = new Feeds(DATA);
+const ladder = new Ladder(DATA);
 const SESSION_FAST_MS = 3000;     // during a session, poll this often in a round's last few minutes
 
 const DEFAULTS = { recording: true, horizons: [15, 5], entries: [120, 60, 30], stake: 10, stopAfter: 0, stopBaseline: 0 };
@@ -122,10 +124,10 @@ async function pollHorizon(mins) {
     depth: book ? { bids: book.bids.slice(0, 3), offers: book.offers.slice(0, 3) } : null,
   });
   const mkt = paper.marketProb(snap);
-  let call = null;
+  let call = null, now5 = null;
   if (ctx.spot != null && r.status === 'MARKET_STATUS_OPEN') {
-    call = paper.callFrom(paper.makePredictions(snap, ctx.vol, model, settings.stake, { book }).predictions,
-      { trained: model.trained, informative: model.isInformative() });
+    now5 = paper.makePredictions(snap, ctx.vol, model, settings.stake, { book });
+    call = paper.callFrom(now5.predictions, { trained: model.trained, informative: model.isInformative() });
   }
   state.last[mins] = { ...snap, marketProb: mkt, modelProb: ctx.spot != null ? model.prob(paper.features(snap, ctx.vol), mkt) : null, call };
   state.polls++;
@@ -140,6 +142,19 @@ async function pollHorizon(mins) {
           note(`maker fill: ${o.strategy} on ${r.slug}`);
         }
       }
+    }
+  }
+
+  // The every-minute test: write the call down at each whole minute left.
+  // Pretend only; never counted in the session totals or learned from.
+  if (sessions.active && now5 && secsToClose != null) {
+    for (const m of Ladder.due(mins, secsToClose)) {
+      if (ladder.has(r.slug, m)) continue;
+      ladder.add(ladderRecord({
+        slug: r.slug, horizon: mins, min: m, ts: now.toISOString(), secsToClose, call,
+        fav: now5.predictions.find((b) => b.strategy === 'follow_book'),
+        modelProb: now5.modelProb, marketProb: now5.marketProb,
+      }));
     }
   }
 
@@ -318,6 +333,13 @@ function msUntilNext() {
     for (const e of settings.entries) {
       const t = end - e * 1000 + 400;
       if (t > now + 200 && t < wake) wake = t;
+    }
+    // ...and each whole minute, for the every-minute test.
+    if (sessions.active) {
+      for (let m = 1; m < h; m++) {
+        const t = end - m * 60000 + 400;
+        if (t > now + 200 && t < wake) wake = t;
+      }
     }
   }
   return Math.max(200, wake - now);
@@ -549,6 +571,7 @@ function apiSession(fresh) {
   const v = {
     active: sessions.active, current: cur, report: rep,
     feeds: cur ? { ...leadLag(feeds, from, to), recording: feeds.running, last: feeds.last } : null,
+    ladder: cur ? ladderReport(ladder, { from, to, rounds: store.rounds, stake: cur.stake }) : null,
     awake: !!awake, past: sessions.past(),
   };
   sessionCache = { k, v };
@@ -669,4 +692,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { allowed, applySettings, settle, apiResults, apiModel, apiNow, apiSession, startSession, stopSession, store, model, settings, sessions, feeds };
+module.exports = { allowed, applySettings, settle, apiResults, apiModel, apiNow, apiSession, startSession, stopSession, store, model, settings, sessions, feeds, ladder };
