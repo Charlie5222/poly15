@@ -459,7 +459,8 @@ function renderCall(el, k, locked) {
   lk.className = 'likely ' + k.side;
   lk.textContent = `${chance(k.prob)} likely to win`;
   px.textContent = `pay ${cents(k.need)} incl. fee · wins ${money(k.wins, 2)} on ${money(k.stake, 0)}` + (locked ? ` · locked at ${k.entry}s` : ' · live');
-  bs.innerHTML = verdictBadge(k) + underdogBadge(k);
+  bs.innerHTML = verdictBadge(k) + underdogBadge(k) + (k.verdict !== 'learning' && nowData && !nowData.proven
+    ? `<span class="badge no" title="The model has not yet shown it predicts better than the market on live rounds (Model tab, check 1).">Unproven: ${esc(nowData.provenDetail || '')}</span>` : '');
 }
 function tickClocks() {
   const now = Date.now() + skew;

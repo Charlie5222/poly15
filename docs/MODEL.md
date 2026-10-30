@@ -149,6 +149,8 @@ These are different questions. A side that wins 93% of the time but costs 95¢ l
 
 **While the model is learning** (under 200 rounds, or not yet informative) its own numbers are noise. The call is then the market's favourite at the market's odds, labelled "Learning (N of 200 rounds): this is just the market's odds". There is no price verdict then.
 
+After learning, until gate 1 passes, every call also carries an **Unproven** badge ("7 of 200 live rounds checked"). Training on backfilled history lets the model give its own opinion early, but only live rounds can show that opinion beats the market.
+
 The call updates live during the round and is **locked** to the latest bet placed once an entry time (120/60/30 s) passes. `test/safety.test.js` checks all four cases.
 
 ### Fills

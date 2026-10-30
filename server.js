@@ -376,10 +376,12 @@ function riding() {
 }
 
 function apiNow() {
-  const sp = spotNow();
+  const sp = spotNow(), bench = model.benchmark();
   return {
     recording: settings.recording, stoppedReason: state.stoppedReason, error: state.lastError || store.lastError,
     spot: sp.spot, spotAt: sp.spotAt, live: live(), riding: riding(), serverTime: Date.now(),
+    // Gate 1: until the model beats the market on live rounds, every call is unproven.
+    proven: !!bench.beatsMarket, provenDetail: `${bench.n} of ${paper.MIN_TRAINED} live rounds checked`,
     counts: {
       rounds: store.rounds.size, bets: store.preds.size, scoredRounds: scoredRounds(),
       trained: model.trained, snapshots: store.snapshots,
