@@ -15,6 +15,11 @@ const path = require('path');
 
 const WINDOW = 20;               // seconds after a minute mark in which it may still be written down
 
+// The exchange-gap test. Fixed before the first night it ran, so the rule
+// cannot be fitted to its own results: follow the exchanges when they sit at
+// least this far from BRTI, and skip prices too high to be worth it.
+const GAP_RULE = { minGap: 20, maxPrice: 0.97 };
+
 class Ladder {
   constructor(dir) {
     this.file = path.join(dir, 'ladder.jsonl');
@@ -33,6 +38,7 @@ class Ladder {
     for (let m = horizon - 1; m >= 1; m--) {
       if (secsToClose <= m * 60 && secsToClose > m * 60 - WINDOW) out.push(m);
     }
+    if (secsToClose <= 30 && secsToClose > 10) out.push(0.5);   // the 30s bet time, for the gap test
     return out;
   }
   has(slug, min) { return this.seen.has(`${slug}@${min}`); }
@@ -45,13 +51,23 @@ class Ladder {
 }
 
 /** Build a record from a call and the follow-the-market bet. */
-function record({ slug, horizon, min, ts, secsToClose, call, fav, modelProb, marketProb }) {
+function record({ slug, horizon, min, ts, secsToClose, call, fav, modelProb, marketProb, gap }) {
   const bet = (b) => (b ? { side: b.side, price: b.price, fee: b.fee || 0 } : null);
   return {
     slug, h: horizon, min, ts, secsToClose, modelProb, marketProb,
     call: call ? { ...bet(call), verdict: call.verdict } : null,
-    fav: bet(fav),
+    fav: bet(fav), gap: gap || null,
   };
+}
+
+/** The bet the gap rule makes on this record, if any. */
+function gapBet(rec) {
+  const g = rec.gap;
+  if (!g || Math.abs(g.value) < GAP_RULE.minGap) return null;
+  const side = g.value > 0 ? 'UP' : 'DOWN';
+  const b = side === 'UP' ? g.up : g.down;
+  if (!b || b.price > GAP_RULE.maxPrice) return null;
+  return { side, price: b.price, fee: b.fee };
 }
 
 function score(bet, resolvedUp, stake) {
@@ -82,7 +98,7 @@ function report(ladder, { from, to, rounds, stake }) {
   let waiting = 0;
   for (const r of ladder.recs) {
     const t = Date.parse(r.ts);
-    if (t < from || t > to) continue;
+    if (t < from || t > to || r.min < 1) continue;
     const up = rounds.get(r.slug)?.resolvedUp;
     if (up == null) { waiting++; continue; }
     const k = `${r.h}|${r.min}`;
@@ -104,4 +120,40 @@ function report(ladder, { from, to, rounds, stake }) {
   return { rows, waiting, tested: rows.length, best: best && best.call.pnl > 0 ? { h: best.h, min: best.min, ...best.call, strong: best.call.z >= 3 } : null };
 }
 
-module.exports = { Ladder, record, report, score, WINDOW };
+/**
+ * The gap rule's results. Bets inside one round move together, so the luck
+ * check (z) counts rounds, not bets. `all` is the headline; judged once enough
+ * nights are in, by the fixed test: z of 2 or more with a profit.
+ */
+function gapReport(ladder, { from, to, rounds, stake }) {
+  const bets = [];
+  let watched = 0, waiting = 0;
+  for (const r of ladder.recs) {
+    const t = Date.parse(r.ts);
+    if (t < from || t > to || !r.gap) continue;
+    watched++;
+    const bet = gapBet(r);
+    if (!bet) continue;
+    const up = rounds.get(r.slug)?.resolvedUp;
+    if (up == null) { waiting++; continue; }
+    bets.push({ ...r, ...score(bet, up, stake) });
+  }
+  const group = (list) => {
+    const s = sum(list);
+    const byRound = new Map();
+    for (const b of list) byRound.set(b.slug, (byRound.get(b.slug) || 0) + b.pnl);
+    const v = [...byRound.values()], m = v.reduce((a, x) => a + x, 0) / (v.length || 1);
+    const sd = Math.sqrt(v.reduce((a, x) => a + (x - m) ** 2, 0) / Math.max(1, v.length - 1));
+    return { ...s, rounds: v.length, z: sd > 0 ? m / (sd / Math.sqrt(v.length)) : 0 };
+  };
+  const all = group(bets);
+  return {
+    rule: GAP_RULE, watched, waiting, all,
+    betTimes: group(bets.filter((b) => [2, 1, 0.5].includes(b.min))),
+    five: group(bets.filter((b) => b.h === 5)),
+    fifteen: group(bets.filter((b) => b.h === 15)),
+    promising: all.n > 0 && all.pnl > 0 && all.z >= 2,
+  };
+}
+
+module.exports = { Ladder, record, report, gapReport, gapBet, score, GAP_RULE, WINDOW };

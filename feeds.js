@@ -71,10 +71,12 @@ class Feeds {
 
 /**
  * For each exchange, how well its price change k seconds ago lines up with
- * BRTI's change now. The k with the strongest match is how far it leads.
- * A lead of 0 means it moves together with BRTI: no head start.
+ * BRTI's change now. BRTI behaves like a rolling average, so one exchange move
+ * feeds into it over many seconds: the match stays flat for a while, then
+ * drops. `follows` is how long it lasts, which is the real head start.
  */
-function leadLag(feeds, from, to, maxLag = 10) {
+const LAGS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 45, 60, 75, 90];
+function leadLag(feeds, from, to) {
   const brti = new Map();
   for (const r of feeds.load('brti', from, to)) brti.set(Math.round(r.t / 1000), r.brti);
   const ex = feeds.load('ex', from, to);
@@ -85,7 +87,7 @@ function leadLag(feeds, from, to, maxLag = 10) {
     for (const r of ex) if (r[k] != null) s.set(Math.round(r.t / 1000), r[k]);
     if (s.size < 600) { out.sources.push({ key: k, name: NAMES[k], seconds: s.size, note: 'not enough data' }); continue; }
     const lags = [];
-    for (let lag = 0; lag <= maxLag; lag++) {
+    for (const lag of LAGS) {
       const xs = [], ys = [];
       for (const [t, b] of brti) {
         const b1 = brti.get(t - 1), e0 = s.get(t - lag), e1 = s.get(t - lag - 1);
@@ -95,11 +97,13 @@ function leadLag(feeds, from, to, maxLag = 10) {
       lags.push({ lag, r: corr(xs, ys), n: xs.length });
     }
     const best = lags.reduce((a, b) => (b.r > a.r ? b : a));
+    let follows = 0;
+    for (const l of lags) { if (l.r < best.r / 2) break; follows = l.lag; }
     // Spread of prices: how far this exchange typically sits from BRTI.
     const gaps = [];
     for (const [t, b] of brti) { const e = s.get(t); if (e != null) gaps.push(e - b); }
     out.sources.push({
-      key: k, name: NAMES[k], seconds: s.size, bestLag: best.lag, bestR: best.r, sameSecondR: lags[0].r,
+      key: k, name: NAMES[k], seconds: s.size, bestLag: best.lag, bestR: best.r, follows, sameSecondR: lags[0].r,
       lags, medianGap: gaps.length ? gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : null,
     });
   }

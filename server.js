@@ -16,8 +16,8 @@ const paper = require('./paper');
 const history = require('./history');
 const { Store, keyOf, PRIMARY_ENTRY } = require('./store');
 const { Sessions, report: sessionReport } = require('./session');
-const { Feeds, leadLag } = require('./feeds');
-const { Ladder, record: ladderRecord, report: ladderReport } = require('./ladder');
+const { Feeds, leadLag, SOURCES } = require('./feeds');
+const { Ladder, record: ladderRecord, report: ladderReport, gapReport } = require('./ladder');
 const { spawn } = require('child_process');
 
 const DATA = process.env.POLY15_DATA || path.join(__dirname, 'data');
@@ -71,6 +71,26 @@ async function refreshBrti() {
   } catch (e) { note(`BRTI: ${e.message}`); }
 }
 const spotNow = () => paper.spotContext(brti, Math.floor(Date.now() / 1000));
+
+/**
+ * How far the exchanges sit from BRTI right now, with the price of each side.
+ * Null unless all three exchanges and BRTI are fresh: a stale reading would
+ * look like a gap.
+ */
+function exchangeGap(ctx, snap, book) {
+  const nowMs = Date.now();
+  const px = Object.keys(SOURCES).map((k) => feeds.last[k]);
+  if (ctx.spot == null || ctx.spotAt == null || nowMs / 1000 - ctx.spotAt > 6) return null;
+  if (px.some((p) => !p || nowMs - p.t > 3000)) return null;
+  const coef = paper.num(snap.feeCoefficient) ?? 0.0695;
+  const side = (s) => {
+    const fill = paper.fillFromBook(book, s, settings.stake, coef);
+    if (fill) return { price: fill.price, fee: fill.fee };
+    const q = paper.entryPrice(snap, s);
+    return q != null && q > 0.005 && q < 0.995 ? { price: q, fee: paper.takerFeePerShare(q, coef) } : null;
+  };
+  return { value: px.reduce((a, p) => a + p.v, 0) / px.length - ctx.spot, up: side('UP'), down: side('DOWN') };
+}
 
 let chartCache = { rows: [], at: 0 };
 async function chartCandles() {
@@ -153,7 +173,7 @@ async function pollHorizon(mins) {
       ladder.add(ladderRecord({
         slug: r.slug, horizon: mins, min: m, ts: now.toISOString(), secsToClose, call,
         fav: now5.predictions.find((b) => b.strategy === 'follow_book'),
-        modelProb: now5.modelProb, marketProb: now5.marketProb,
+        modelProb: now5.modelProb, marketProb: now5.marketProb, gap: exchangeGap(ctx, snap, book),
       }));
     }
   }
@@ -572,6 +592,7 @@ function apiSession(fresh) {
     active: sessions.active, current: cur, report: rep,
     feeds: cur ? { ...leadLag(feeds, from, to), recording: feeds.running, last: feeds.last } : null,
     ladder: cur ? ladderReport(ladder, { from, to, rounds: store.rounds, stake: cur.stake }) : null,
+    gapTest: cur ? gapReport(ladder, { from, to, rounds: store.rounds, stake: cur.stake }) : null,
     awake: !!awake, past: sessions.past(),
   };
   sessionCache = { k, v };

@@ -315,10 +315,15 @@
         <div id="ssLadderBest"></div>
         <div class="pgrid" id="ssLadder"></div>
       </div>
+      <div class="card">
+        <h2>Exchange gap test</h2>
+        <p class="sub">The rule, fixed in advance: when the exchanges sit $20 or more from the settlement index, pretend-bet $10 the way they point, at every whole minute left and at 30 seconds. Prices above 97¢ are skipped. Kept apart from the totals above.</p>
+        <div id="ssGap"></div>
+      </div>
       <div class="grid2">
         <div class="card">
           <h2>Faster price check</h2>
-          <p class="sub">Does any exchange move before the settlement index? A head start of a second or more could be a real edge.</p>
+          <p class="sub">The settlement index behaves like a rolling average, so exchange moves take time to feed into it. "Ahead by" is how long that lasts.</p>
           <div id="ssFeeds"></div>
         </div>
         <div class="card">
@@ -817,6 +822,13 @@ async function loadSession() {
   $('#ssPatterns').innerHTML = r.patterns.map((g) => `<div class="pgroup"><h3>${esc(g.title)}</h3>${g.rows.map((x) => `<div class="prow"><span>${esc(x.label)}</span><span class="num tiny">${x.n}</span>${wrBar(x.winRate, x.need)}<span class="num ${x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : ''}" style="text-align:right">${signed(x.pnl)}</span></div>`).join('')}</div>`).join('')
     || '<div class="empty">Nothing settled yet.</div>';
 
+  const gt = d.gapTest;
+  const gapRow = (name, x) => `<tr><td>${name}</td><td class="num">${(x.n || 0).toLocaleString()}</td><td class="num">${x.rounds || 0}</td><td class="num">${x.n ? pct(x.winRate, 1) : '—'}</td><td class="num">${x.n ? pct(x.need, 1) : '—'}</td><td class="num ${x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : ''}">${x.n ? signed(x.pnl) : '—'}</td><td class="num">${x.n ? x.z.toFixed(1) : '—'}</td></tr>`;
+  $('#ssGap').innerHTML = !gt ? '<div class="empty">Starts with the session.</div>' : gt.all.n
+    ? `<table><thead><tr><th></th><th>Bets</th><th>Rounds</th><th>Won</th><th>Needed</th><th>Profit</th><th>Luck check</th></tr></thead><tbody>${gapRow('<b>All</b>', gt.all)}${gapRow('2 min, 1 min, 30 s', gt.betTimes)}${gapRow('5-minute rounds', gt.five)}${gapRow('15-minute rounds', gt.fifteen)}</tbody></table>
+      <p class="tiny" style="margin:10px 0 0">${gt.promising ? 'The All row passes the fixed test: a profit with a luck check of 2 or more.' : 'The fixed test is a profit in the All row with a luck check of 2 or more. Not passed yet.'}${gt.waiting ? ` ${gt.waiting} bets waiting to settle.` : ''}</p>`
+    : `<div class="empty">${gt.watched ? `Checked ${gt.watched} times. ${gt.waiting ? `${gt.waiting} bets waiting to settle.` : 'No gap of $20 yet.'}` : 'Starts at the next whole minute.'}</div>`;
+
   const lad = d.ladder;
   const ladRows = lad?.rows || [];
   const b = lad?.best;
@@ -829,9 +841,9 @@ async function loadSession() {
 
   const f = d.feeds;
   if (!f || !f.sources?.length) $('#ssFeeds').innerHTML = `<div class="empty">${esc(f?.note || 'Starts with the session.')}${f?.recording ? ' Recording now.' : ''}</div>`;
-  else $('#ssFeeds').innerHTML = `<table><thead><tr><th>Exchange</th><th>Head start</th><th>Match</th><th>Typical gap</th></tr></thead><tbody>${f.sources.map((s) => s.note ? `<tr><td>${esc(s.name)}</td><td colspan="3" class="tiny">${esc(s.note)}</td></tr>`
-      : `<tr><td>${esc(s.name)}</td><td class="num"><b>${s.bestLag ? s.bestLag + ' s' : 'none'}</b></td><td class="num">${s.bestR.toFixed(2)}</td><td class="num">${s.medianGap != null ? signed(s.medianGap, 0) : '—'}</td></tr>`).join('')}</tbody></table>
-      <p class="tiny" style="margin:10px 0 0">${(f.seconds / 3600).toFixed(1)} hours of 1-second prices. "Head start" is how many seconds earlier its moves best match the index's moves; "match" runs 0 to 1.</p>`;
+  else $('#ssFeeds').innerHTML = `<table><thead><tr><th>Exchange</th><th>Ahead by</th><th>Match</th><th>Typical gap</th></tr></thead><tbody>${f.sources.map((s) => s.note ? `<tr><td>${esc(s.name)}</td><td colspan="3" class="tiny">${esc(s.note)}</td></tr>`
+      : `<tr><td>${esc(s.name)}</td><td class="num"><b>${s.follows ? 'up to ' + s.follows + ' s' : 'none'}</b></td><td class="num">${s.bestR.toFixed(2)}</td><td class="num">${s.medianGap != null ? signed(s.medianGap, 0) : '—'}</td></tr>`).join('')}</tbody></table>
+      <p class="tiny" style="margin:10px 0 0">${(f.seconds / 3600).toFixed(1)} hours of 1-second prices. Match runs 0 to 1. A low match is normal: each second's move is small and feeds in slowly.</p>`;
   const s = r.sellOnFlip;
   $('#ssSell').innerHTML = s.n ? `<div class="hero" style="grid-template-columns:1fr 1fr"><div class="stat"><div class="l">Times it would have sold</div><div class="v num">${s.n}</div></div>
       <div class="stat"><div class="l">Versus holding</div><div class="v num ${s.better > 0 ? 'up' : s.better < 0 ? 'down' : ''}">${signed(s.better)}</div><div class="s">holding ${signed(s.holdPnl)}, selling ${signed(s.sellPnl)}</div></div></div>`
