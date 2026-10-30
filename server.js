@@ -116,7 +116,8 @@ async function pollHorizon(mins) {
   const mkt = paper.marketProb(snap);
   let call = null;
   if (ctx.spot != null && r.status === 'MARKET_STATUS_OPEN') {
-    call = paper.callFrom(paper.makePredictions(snap, ctx.vol, model, settings.stake, { book }).predictions, model);
+    call = paper.callFrom(paper.makePredictions(snap, ctx.vol, model, settings.stake, { book }).predictions,
+      { trained: model.trained, informative: model.isInformative() });
   }
   state.last[mins] = { ...snap, marketProb: mkt, modelProb: ctx.spot != null ? model.prob(paper.features(snap, ctx.vol), mkt) : null, call };
   state.polls++;
@@ -343,16 +344,14 @@ const live = () => settings.horizons.map((h) => {
   };
 });
 
+const statusOf = (rec) => rec.modelTrained == null ? null : { trained: rec.modelTrained, informative: !!rec.informative };
+
 /** The call as placed at the latest entry time this round, if any yet. */
 function lockedCall(slug) {
   for (const e of [...ALL_ENTRIES].sort((a, b) => a - b)) {
     const rec = store.preds.get(keyOf(slug, e));
     if (rec) {
-      const c = paper.callFrom(rec.predictions || [], null);
-      if (c && !rec.predictions.some((b) => b.strategy === 'model_edge')) {
-        c.why = rec.modelTrained < paper.MIN_TRAINED ? `model still learning (${rec.modelTrained} of ${paper.MIN_TRAINED} rounds)`
-          : !rec.informative ? 'model has nothing to add to the price yet' : 'not enough edge to cover the fee';
-      }
+      const c = paper.callFrom(rec.predictions || [], statusOf(rec));
       return c ? { ...c, entry: e } : null;
     }
   }
@@ -368,7 +367,7 @@ function riding() {
     out.push({
       slug: rec.slug, horizon: rec.horizon, entry: rec.entry, endMs: p?.endMs ?? null,
       marketProb: rec.marketProb, modelProb: rec.modelProb, priceToBeat: rec.priceToBeat ?? null,
-      call: paper.callFrom(rec.predictions || [], null),
+      call: paper.callFrom(rec.predictions || [], statusOf(rec)),
       bets: (rec.predictions || []).map((b) => ({ strategy: b.strategy, side: b.side, price: b.price, stake: b.stake })),
       maker: (rec.maker || []).map((m) => ({ strategy: m.strategy, side: m.side, bid: m.bid, filled: !!m.filled })),
     });

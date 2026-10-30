@@ -551,29 +551,37 @@ function makePredictions(snap, vol, model, stake, opts = {}) {
 }
 
 /**
- * The one call shown to a person: BUY UP or BUY DOWN, always.
- * If the model has an edge after fees (it placed a model_edge bet), that bet
- * is the call and `edge` is true. Otherwise the call is the side the model
- * thinks likelier, and `edge` is false with the reason it would not bet.
+ * The one call shown to a person: always BUY on the side the model thinks
+ * likelier, with its chance of winning, plus a separate verdict on the price.
+ * Likely to win and worth the price are different questions: a 93% side at
+ * 95 cents loses money over time, a 40% side at 30 cents makes it.
+ *
+ * verdict: 'learning' (too few rounds, or the model only copies the market;
+ *                       the call is then the market's favourite at the market's odds),
+ *          'good'     (model_edge bet this side: worth more than price + fee + margin),
+ *          'pricey'   (it is not).
+ * underdog: set when the good price is on the less likely side instead.
+ * `status` is { trained, informative }; null when unknown.
  * `wins` is the profit in dollars if the call is right; a loss costs the stake.
  */
-function callFrom(predictions, model) {
+function callFrom(predictions, status) {
   const e = predictions.find((b) => b.strategy === 'model_edge');
-  const d = e || predictions.find((b) => b.strategy === 'model_direction');
+  const learning = !e && status && (status.trained < MIN_TRAINED || !status.informative);
+  // While learning, the model's numbers are noise, so the call is the market's
+  // favourite at the market's odds (follow_book is exactly that bet).
+  const md = predictions.find((b) => b.strategy === 'model_direction');
+  const fav = learning && md && md.marketProb != null && predictions.find((b) => b.strategy === 'follow_book');
+  const d = fav || md;
   if (!d) return null;
-  const pUp = d.modelProb != null && !e ? d.modelProb : null;
-  const prob = e ? e.modelProb : pUp == null ? null : d.side === 'UP' ? pUp : 1 - pUp;
-  const need = d.price + d.fee;
-  let why = null;
-  if (!e && model) {
-    const trained = model.trained;
-    if (trained < MIN_TRAINED) why = `model still learning (${trained} of ${MIN_TRAINED} rounds)`;
-    else if (model && !model.isInformative()) why = 'model has nothing to add to the price yet';
-    else why = 'not enough edge to cover the fee';
-  }
+  const pUp = fav ? md.marketProb : d.modelProb;
+  if (pUp == null) return null;
+  const prob = d.side === 'UP' ? pUp : 1 - pUp;
+  const verdict = learning ? 'learning' : e && e.side === d.side ? 'good' : 'pricey';
   return {
-    side: d.side, edge: !!e, price: d.price, fee: d.fee, stake: d.stake,
-    wins: d.shares - d.stake, prob, need, why,
+    side: d.side, prob, price: d.price, fee: d.fee, need: d.price + d.fee, stake: d.stake,
+    wins: d.shares - d.stake, verdict, trained: status ? status.trained : null, minTrained: MIN_TRAINED,
+    margin: EDGE_MARGIN,
+    underdog: e && e.side !== d.side ? { side: e.side, prob: e.modelProb, need: e.price + e.fee } : null,
   };
 }
 

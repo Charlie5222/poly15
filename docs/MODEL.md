@@ -140,14 +140,16 @@ Every round, each strategy picks a side at three entry times: **120, 60 and 30 s
 
 ### The BUY UP / BUY DOWN call
 
-Each round card on the Now tab shows one call, built by `callFrom()` in `paper.js`:
+Each round card on the Now tab answers two separate questions, built by `callFrom()` in `paper.js`:
 
-- the side is `model_edge`'s when it bets, otherwise `model_direction`'s (the side the model thinks likelier), so it always reads **BUY UP** or **BUY DOWN**;
-- it shows the price including the fee and what a $10 bet would win;
-- a badge says **✓ Edge after fees** (filled, bright) only when `model_edge` would bet; otherwise **No edge** and the reason (still learning, nothing to add to the price, or not enough to cover the fee);
-- it updates live during the round and is **locked** to the latest bet placed once an entry time (120/60/30 s) passes.
+1. **Who is likely to win:** "BUY DOWN · 93% likely to win", on the side the model thinks likelier.
+2. **Is the price worth it:** "✓ Good price: worth 75¢, you pay 69¢" only when `model_edge` bets that side, otherwise "✗ Too expensive: worth 87¢, you pay 91¢".
 
-Until gate 1 passes, expect "No edge" nearly every round. The side alone is the model's opinion, not a recommendation.
+These are different questions. A side that wins 93% of the time but costs 95¢ loses money over many rounds. A side that wins 40% of the time at 30¢ makes money. When the good price is on the less likely side, the call stays on the likelier side and a note says "Good price on UP (underdog, wins ~40%…)".
+
+**While the model is learning** (under 200 rounds, or not yet informative) its own numbers are noise. The call is then the market's favourite at the market's odds, labelled "Learning (N of 200 rounds): this is just the market's odds". There is no price verdict then.
+
+The call updates live during the round and is **locked** to the latest bet placed once an entry time (120/60/30 s) passes. `test/safety.test.js` checks all four cases.
 
 ### Fills
 

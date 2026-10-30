@@ -8,6 +8,8 @@
  *      and confident past the breakeven price by a margin.
  *   4. A bet can never lose more than its stake.
  *   5. Small samples are labeled "too few", never a verdict.
+ *   6. The BUY call never calls a price good unless model_edge bet it, and
+ *      while learning it shows the market's odds, not the model's.
  *
  * Offline. No network needed.
  */
@@ -128,6 +130,25 @@ const edgeBets = (made) => made.predictions.filter((p) => p.strategy === 'model_
   const rows = Array.from({ length: 99 }, () => ({ strategy: 'x', price: 0.5, fee: 0.017, stake: 10, won: true, pnl: 9.6 }));
   assert.strictEqual(paper.summarize(rows)[0].verdict, 'too few', '99 bets must read "too few"');
   console.log('honest small-sample label OK');
+}
+
+// 6. The call shown to a person.
+{
+  const bet = (strategy, side, price, x = {}) => ({ strategy, side, price, fee: 0.01, stake: 10, shares: 10 / (price + 0.01), ...x });
+  const fb = bet('follow_book', 'UP', 0.53);
+  const learning = paper.callFrom([bet('model_direction', 'DOWN', 0.49, { modelProb: 0.43, marketProb: 0.52 }), fb], { trained: 19, informative: true });
+  assert.strictEqual(learning.verdict, 'learning');
+  assert.strictEqual(learning.side, 'UP', 'while learning, the call is the market favourite');
+  assert.strictEqual(learning.prob, 0.52, "while learning, the chance shown is the market's");
+  const pricey = paper.callFrom([bet('model_direction', 'UP', 0.95, { modelProb: 0.93, marketProb: 0.94 }), fb], { trained: 500, informative: true });
+  assert.strictEqual(pricey.verdict, 'pricey', 'likely to win is not the same as a good price');
+  const dog = paper.callFrom([bet('model_direction', 'DOWN', 0.7, { modelProb: 0.4, marketProb: 0.7 }),
+    bet('model_edge', 'UP', 0.3, { modelProb: 0.4 })], { trained: 500, informative: true });
+  assert.ok(dog.side === 'DOWN' && dog.verdict === 'pricey' && dog.underdog.side === 'UP', 'underdog value is a note, not the call');
+  const good = paper.callFrom([bet('model_direction', 'UP', 0.68, { modelProb: 0.75, marketProb: 0.68 }),
+    bet('model_edge', 'UP', 0.68, { modelProb: 0.75 })], { trained: 500, informative: true });
+  assert.strictEqual(good.verdict, 'good');
+  console.log('honest BUY call          OK');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

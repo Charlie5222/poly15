@@ -103,6 +103,11 @@
   @keyframes flip{0%{transform:scale(.92); opacity:.4} 100%{transform:none; opacity:1}}
   .callinfo{display:flex; flex-direction:column; gap:2px; min-width:0}
   .callinfo .px{font-weight:600}
+  .likely{font-size:17px; font-weight:700; letter-spacing:-.01em}
+  .likely.UP{color:var(--up)} .likely.DOWN{color:var(--down)}
+  .badges{display:flex; flex-wrap:wrap; gap:4px; margin-top:2px}
+  .badge.bad{background:var(--down-soft); color:var(--down)}
+  .badge.learn{background:var(--accent-soft); color:var(--accent)}
   .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; width:max-content}
   .badge.yes{background:var(--up-soft); color:var(--up)} .badge.no{background:var(--sunk); color:var(--ink-2)}
   .badge.lock{background:var(--accent-soft); color:var(--accent)}
@@ -402,7 +407,7 @@ function roundCard(r) {
     </div>
     <div>
       <div class="rhead"><h3>${r.horizon}-minute round</h3><span class="tiny">closes ${esc(timeOf(r.endMs))}</span></div>
-      <div class="call"><span class="buy">—</span><div class="callinfo"><span class="px tiny"></span><span class="badge no"></span></div></div>
+      <div class="call"><span class="buy">—</span><div class="callinfo"><span class="likely"></span><span class="px tiny"></span><div class="badges"></div></div></div>
       <div class="kv">
         <div>Price to beat<b class="num">${money(r.priceToBeat, 2)}</b></div>
         <div>BTC vs that<b class="num gap">—</b></div>
@@ -428,20 +433,33 @@ function updateRound(r) {
   $('.ld', c).textContent = 'Down ' + pct(m == null ? null : 1 - m);
   renderCall($('.call', c), r.locked || r.call, !!r.locked);
 }
+const chance = (p) => p > 0.99 ? '>99%' : p < 0.01 ? '<1%' : pct(p);
 const cents = (p) => (p * 100).toFixed(p < 0.1 ? 1 : 0) + '¢';
-/** BUY UP / BUY DOWN, the price, what it wins, and whether it is worth it. */
+/** How likely the call is to win, and separately whether the price is worth paying. */
+function verdictBadge(k, short) {
+  if (k.verdict === 'learning') return `<span class="badge learn">${short ? 'Learning' : `Learning (${k.trained} of ${k.minTrained} rounds): this is just the market's odds`}</span>`;
+  const worth = `worth ${cents(k.prob)}, you pay ${cents(k.need)}`;
+  if (k.verdict === 'good') return `<span class="badge yes">✓ Good price${short ? '' : ': ' + worth}</span>`;
+  const close = !short && k.prob > k.need ? ` (needs a ${Math.round(k.margin * 100)}¢ cushion)` : '';
+  return `<span class="badge bad">✗ Too expensive${short ? '' : ': ' + worth + close}</span>`;
+}
+function underdogBadge(k, short) {
+  const u = k.underdog;
+  if (!u) return '';
+  return `<span class="badge yes">Good price on ${u.side} (underdog${short ? '' : `, wins ~${chance(u.prob)}, worth ${cents(u.prob)}, you pay ${cents(u.need)}`})</span>`;
+}
 function renderCall(el, k, locked) {
-  const b = $('.buy', el), px = $('.px', el), badge = $('.badge', el);
-  if (!k) { b.className = 'buy'; b.textContent = 'Waiting…'; px.textContent = 'needs a price and a BTC reading'; badge.hidden = true; return; }
+  const b = $('.buy', el), lk = $('.likely', el), px = $('.px', el), bs = $('.badges', el);
+  if (!k) { b.className = 'buy'; b.textContent = 'Waiting…'; lk.textContent = ''; px.textContent = 'needs a price and a BTC reading'; bs.innerHTML = ''; return; }
   const text = 'BUY ' + k.side;
   const changed = b.textContent !== text;
   b.textContent = text;
-  b.className = `buy ${k.side}${k.edge ? ' edge' : ''}`;
+  b.className = `buy ${k.side}${k.verdict === 'good' ? ' edge' : ''}`;
   if (changed) { void b.offsetWidth; b.classList.add('flip'); }   // replay the pop when the side changes
-  px.textContent = `at ${cents(k.price + k.fee)} incl. fee · wins ${money(k.wins, 2)} on ${money(k.stake, 0)}`;
-  badge.hidden = false;
-  badge.className = 'badge ' + (k.edge ? 'yes' : 'no');
-  badge.textContent = (k.edge ? '✓ Edge after fees' : 'No edge: ' + (k.why || 'fee eats it')) + (locked ? ` · locked at ${k.entry}s` : ' · live');
+  lk.className = 'likely ' + k.side;
+  lk.textContent = `${chance(k.prob)} likely to win`;
+  px.textContent = `pay ${cents(k.need)} incl. fee · wins ${money(k.wins, 2)} on ${money(k.stake, 0)}` + (locked ? ` · locked at ${k.entry}s` : ' · live');
+  bs.innerHTML = verdictBadge(k) + underdogBadge(k);
 }
 function tickClocks() {
   const now = Date.now() + skew;
@@ -483,9 +501,9 @@ function renderNow(d) {
   $('#riding').innerHTML = d.riding.length ? d.riding.map((r) => {
     const k = r.call;
     const ups = r.bets.filter((b) => b.side === 'UP').length;
-    const callHtml = k ? `<span class="buy ${k.side}${k.edge ? ' edge' : ''}">BUY ${k.side}</span>
-        <span class="tiny num" style="margin-left:8px">at ${cents(k.price + k.fee)} · wins ${money(k.wins, 2)}</span>
-        <span class="badge ${k.edge ? 'yes' : 'no'}" style="margin-left:8px">${k.edge ? '✓ Edge after fees' : 'No edge'}</span>` : '';
+    const callHtml = k ? `<span class="buy ${k.side}${k.verdict === 'good' ? ' edge' : ''}">BUY ${k.side}</span>
+        <span class="tiny num" style="margin-left:8px"><b class="${k.side === 'UP' ? 'up' : 'down'}">${chance(k.prob)} likely</b> · pay ${cents(k.need)} · wins ${money(k.wins, 2)}</span>
+        <span style="margin-left:8px">${verdictBadge(k, true)}${underdogBadge(k, true)}</span>` : '';
     return `<div class="ride"><div><b>${r.horizon}m · ${r.endMs ? esc(timeOf(r.endMs)) : ''}</b><div class="tiny">bet ${r.entry}s before close</div></div>
       <div>${callHtml}
       <div class="bets others">${r.bets.map((b) => `<span class="side ${b.side}" title="${esc(nameOf(b.strategy))}: buy ${b.side} at ${(b.price * 100).toFixed(1)}¢">${esc(nameOf(b.strategy))}</span>`).join('')}
