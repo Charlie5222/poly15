@@ -17,75 +17,74 @@ Everything below rests on these facts. Each is marked with how we know it.
 ## Components
 
 ```
-                   gateway.polymarket.us              api.coinbase.com / api.exchange.coinbase.com
-                    (public, no key)                    (public, no key)
-                           │                                     │
-                    us.js  │  fetchRound(date, mins)              │  spot price, 1-minute candles
-                           ▼                                     ▼
+                         gateway.polymarket.us  (public, no key)
+        /v1/events   /v1/markets/{slug}/book   /v1/asset-prices/history (BRTI)   /v1/price-history
+                                        │
+                                  us.js │  fetchEvent, fetchBook, fetchBrti, fetchPriceHistory
+                                        ▼
  ┌───────────────────────────────────────────────────────────────────────────────────────┐
  │ server.js                                                                             │
  │                                                                                       │
  │  loop() every POLL_MS (10 s):                                                         │
+ │    refreshBrti ──► last 15 minutes of 1-second BRTI, in memory                        │
  │    for each horizon:                                                                  │
- │      pollHorizon ──► snapshot ──► snapshots.jsonl                                     │
- │           │                                                                           │
- │           └─ if 5 s < time left ≤ entrySecs and not yet bet:                         │
- │                paper.makePredictions ──► predictions.jsonl                            │
- │      harvest ──► looks back 4 rounds for settled results ──► rounds.jsonl             │
- │           └─ settleRound ──► paper.score ──► scored.jsonl                             │
- │                          └─► model.train ──► model.json                               │
+ │      pollHorizon ──► fetch event + order book ──► snapshot (with depth) ──► store     │
+ │           ├─ at each entry time (120, 60, 30 s): paper.makePredictions + fills ──►    │
+ │           │                                       predictions.jsonl                   │
+ │           └─ resting maker orders: filled if a later ask trades through the bid      │
+ │      settle ──► official outcome ──► rounds.jsonl ──► score ──► scored.jsonl          │
+ │                                                   └─► model.add (once per entry)     │
+ │    catchUp (every ~8 s, cheap): any unscored prediction up to 29 days old           │
+ │    runHistory (hourly): history.backfill ──► data/history ──► backtest.json            │
  │                                                                                       │
- │  HTTP on 127.0.0.1:18790:  /  /api/dashboard  /api/paper  /api/learn                  │
- │                            /api/settings (GET, POST)  /api/candles                    │
+ │  HTTP on 127.0.0.1:18790:  /  /api/now  /api/results  /api/model  /api/settings       │
+ │                            /api/chart  /api/log                                       │
  └───────────────────────────────────────────────────────────────────────────────────────┘
-                           ▲
-                           │  polls every 3 s, chart every 30 s, countdown ticks locally
-                        ui.html
+          ▲                                       │
+          │ polls the open tab only               │ store.js: every .jsonl file read once at
+       ui.html                                    │ startup, then held in memory and appended to
 ```
 
-**`us.js`** knows Polymarket US. It builds slugs from a date, fetches `/v1/events?slug=…`, and flattens the response into one object (`shape()`): open price, window, settlement, quotes, fee coefficient, status, and `resolvedUp`, which is `1`, `0`, or `null` while unsettled. It has no state.
+**`us.js`** knows Polymarket US: slugs, fetching (with backoff on 429, no retry on 404), parsing an event into one flat object, the order book, BRTI candles, and price history. `resolvedUp` is `1`, `0`, or `null`, taken from the official settlement price, or from `outcomePrices` only once the status is `RESOLVED` or `SETTLED`. It has no state.
 
-**`paper.js`** knows trading. It turns a snapshot into features, holds the learning model, defines the strategies, decides each bet, scores bets, summarizes results, computes calibration, and runs gate 1. It has no network access.
+**`paper.js`** knows trading: BRTI spot context, features, the model, the sequential test, calibration, strategies, order-book fills, maker orders, scoring and summaries. It has no network access and no files except `model.json`.
 
-**`server.js`** ties them together. It owns the clock, the files, the settings, and the HTTP API. It is one process with one event loop.
+**`store.js`** owns the data files. Each is read once at startup; afterwards everything is answered from memory and new lines are appended. This replaced v1's re-parsing of whole files every few seconds.
 
-**`ui.html`** is the entire front end in one file. Plain DOM and canvas, no framework, no build step. The countdown is computed locally from each round's known end time, so it ticks every 250 ms without asking the server.
+**`history.js`** rebuilds past rounds (backfill) and replays them walk-forward (backtest). See `docs/MODEL.md`.
+
+**`server.js`** ties them together: the clock, settings, the HTTP API, security checks.
+
+**`ui.html`** is the entire front end in one file. Three tabs (Now, Results, Model) and a settings sheet behind the gear. Plain DOM and canvas, no framework, no build step, follows macOS light and dark mode. The countdown ticks locally.
 
 ## The life of one round
 
 Take the 15-minute round starting at 03:45 UTC.
 
-1. **03:45 onward.** Every ~10 s the server computes the slug `btc-updown-15m-2026-10-28-0345z`, fetches it, fetches BTC spot, and appends a snapshot.
-2. **~03:59:00** (60 s before close, configurable). On the first poll inside the window, `paper.makePredictions` builds the features and every strategy picks a side at the price on offer. The bets are written to `predictions.jsonl`. **The outcome does not exist yet**, and a test (`test/safety.test.js`) proves no outcome field can influence a bet.
-3. **04:00.** The round closes. Polymarket averages the last minute of BRTI readings and settles.
-4. **Shortly after.** On each loop, `harvest` re-fetches the last four rounds of each horizon. Once this round shows a settlement, it is appended to `rounds.jsonl` and `settleRound` scores every bet into `scored.jsonl`, then trains the model **once** on that round.
+1. **03:45 onward.** Every ~10 s the server fetches the event and its order book and appends a snapshot with BRTI spot, volatility, quotes and the top of the book.
+2. **03:58:00, 03:59:00, 03:59:30** (120, 60, 30 s before close). On the first poll inside each window, every strategy picks a side. Taker bets are filled against the book fetched at that moment. At 60 s, maker orders are also placed at the bid. All are written to `predictions.jsonl`. **The outcome does not exist yet**; `test/safety.test.js` proves no outcome field can influence a bet.
+3. **Until close.** Each later snapshot is checked against resting maker orders; one counts as filled if that side's ask drops below the bid.
+4. **04:00.** The round closes and Polymarket settles on the average of the last minute of BRTI.
+5. **Shortly after.** Once the official settlement appears, the round goes to `rounds.jsonl`, every bet is scored into `scored.jsonl`, and the model adds one row per entry time and refits. Gate 1 records the 60 s prediction's loss, made before the outcome was known.
 
-Because bets are written before settlement and training happens after, the model is always evaluated **walk-forward**: it is scored only on rounds it had not seen.
+If the laptop sleeps or the app is closed, `catchUp` finds every prediction without a score on the next start and fetches each round directly, up to 29 days back.
 
 ## Data files
 
-All are append-only JSON Lines (one JSON object per line), except the two `.json` files. Location: `$POLY15_DATA`, which the macOS app sets to `~/Library/Application Support/Poly15/data`. Default when run with `npm start` is `./data`.
+Append-only JSON Lines, except the `.json` files. Location: `$POLY15_DATA`, which the macOS app sets to `~/Library/Application Support/Poly15/data`. Default with `npm start` is `./data`.
 
-| file | one line per | written by |
+| file | one line per | notes |
 |---|---|---|
-| `snapshots.jsonl` | poll of one horizon (about 17,000 a day, ~650 bytes each) | `pollHorizon` |
-| `rounds.jsonl` | settled round, with its outcome | `harvest` |
-| `predictions.jsonl` | round bet on: features, market and model probability, and every strategy's bet | `pollHorizon` |
-| `scored.jsonl` | individual settled bet, with `won` and `pnl` in dollars | `settleRound` |
-| `model.json` | (whole file) weights, bias, rounds trained, the last 3,000 per-round losses | `model.save` |
-| `settings.json` | (whole file) the Settings tab | `POST /api/settings` |
-
-A **snapshot** contains, among others:
-
-```json
-{ "ts": "2026-10-28T03:58:58.120Z", "secsToClose": 62, "spot": 81090.12, "momentum": 0.31, "vol": 7.42,
-  "horizon": 15, "slug": "btc-updown-15m-2026-10-28-0345z", "status": "MARKET_STATUS_OPEN",
-  "priceToBeat": 81079.52, "settlementPrice": null, "resolvedUp": null, "indexSymbol": "BRTI",
-  "windowStart": "2026-10-28T03:45:00Z", "windowEnd": "2026-10-28T04:00:00Z",
-  "yesPrice": 0.22, "yesQuote": 0.23, "noPrice": 0.23, "noQuote": 0.78, "feeCoefficient": 0.0695 }
-```
-
-How the quote fields are read (inferred from live observation, see REVIEW.md): `yesQuote` is what it costs to buy Yes (Up) and `noQuote` is what it costs to buy No (Down). The market's own probability of Up is the midpoint `(yesQuote + (1 - noQuote)) / 2`.
+| `snapshots.jsonl` | poll of one horizon | now includes `depth` (top 3 book levels each side, with size), `spotAt` (timestamp of the BRTI reading) and `quoteSrc` (`book` or `event`) |
+| `rounds.jsonl` | settled round | the official outcome |
+| `predictions.jsonl` | round and entry time bet on | features, market and model probability, every bet with its fill |
+| `scored.jsonl` | settled bet | `won`, `pnl` in dollars, `entry`, `modelVersion` (2 for new data) |
+| `maker-fills.jsonl` | maker order that filled | which order, and when |
+| `outcomes-checked.jsonl` | round whose recorded outcome was re-checked against the official settlement | corrections are applied when loaded |
+| `history/rounds-{15,5}m.jsonl` | backfilled past round | Yes/No asks per minute, compressed 1-second BRTI, official outcome |
+| `backtest.json` | (whole file) latest walk-forward backtest | |
+| `model.json` | (whole file) v2 model: standardization, weights, training rows, out-of-sample losses | a v1 file is ignored |
+| `settings.json` | (whole file) settings | |
 
 ## HTTP API
 
@@ -94,14 +93,15 @@ All on `127.0.0.1:18790` (`PORT` overrides).
 | method and path | returns |
 |---|---|
 | `GET /` | `ui.html` |
-| `GET /api/dashboard` | recording state, each live round, open bets, counts |
-| `GET /api/paper` | balance, overall and per-strategy results, open and recent bets |
-| `GET /api/learn` | weights, gate 1 benchmark, calibration, the three gates |
-| `GET /api/candles` | last 120 one-minute BTC candles, current round boundaries, spot |
+| `GET /api/now` | recording state, each live round, bets riding, recent results, backfill progress |
+| `GET /api/results?entry=all\|120\|60\|30&horizon=all\|15\|5&era=new\|all` | per-strategy results with verdicts, totals, the backtest |
+| `GET /api/model` | weights, gate 1, calibration, the three gates, training-row counts |
+| `GET /api/chart` | BRTI one-minute candles and the current round's boundaries |
+| `GET /api/log` | the last 60 log lines |
 | `GET /api/settings` | current settings |
-| `POST /api/settings` | accepts any of `recording`, `stake` (above 0, up to 10,000), `stopAfter`, `entrySecs` (10 to 600), `horizons` (`[15]`, `[5]`, or `[15, 5]`). Invalid values are ignored. |
+| `POST /api/settings` | any of `recording`, `stake` (above 0, up to 10,000), `stopAfter` (counted from when it was set), `entries` (subset of 120, 60, 30; 60 is always kept), `horizons` |
 
-There is no authentication. See REVIEW.md: this endpoint can be triggered by any website the user visits.
+**Security.** Every request must carry a `Host` of `127.0.0.1:PORT` or `localhost:PORT`, which defeats DNS rebinding. A `POST` must also have no foreign `Origin`, `Content-Type: application/json`, and the header `x-poly15: 1`. A website cannot send that header cross-site without a CORS preflight, which the server never approves. The form-post attack described in v1's review now gets `403 forbidden`.
 
 ## Configuration
 
@@ -110,19 +110,23 @@ There is no authentication. See REVIEW.md: this endpoint can be triggered by any
 | `PORT` | `18790` | HTTP port |
 | `POLY15_DATA` | `./data` | where the data files go |
 | `POLL_MS` | `10000` | milliseconds between polling loops |
-| `POLY15_MIN_TRAINED` | `200` | settled rounds before the model may place edge bets |
+| `POLY15_MIN_TRAINED` | `200` | training rows before the model may bet, and the gate-1 burn-in |
 | `POLY15_EDGE_MARGIN` | `0.02` | how far past breakeven the model's belief must be |
-| `POLY15_MIN_SPREAD` | `0.02` | how much the model's disagreement with the market must vary to count as informative |
+| `POLY15_MIN_SPREAD` | `0.02` | how much the model's disagreement must vary to count as informative |
+| `POLY15_NO_BACKFILL` | unset | `1` disables the history backfill |
+| `POLY15_BACKFILL_RPS` | `4` | backfill request rate |
 
 ## External calls and their budgets
 
-| endpoint | how often | limit |
+| endpoint | how often | |
 |---|---|---|
-| `gateway.polymarket.us/v1/events?slug=…` | about 2 per loop plus up to 8 harvest lookups | 25 requests per second per IP, published |
-| `api.coinbase.com/v2/prices/BTC-USD/spot` | at most every 5 s | public |
-| `api.exchange.coinbase.com/.../candles?granularity=60` | at most every 45 s | public |
+| `/v1/events?slug=…` | about 2 per loop, plus settlement and catch-up lookups | published limit 25/s per IP |
+| `/v1/markets/{slug}/book` | about 2 per loop | |
+| `/v1/asset-prices/history` (1 s) | once per loop, only new seconds | |
+| `/v1/asset-prices/history` (1 min) | at most every 45 s, for the chart | |
+| backfill (`price-history`, BRTI, events) | hourly, at most 4/s | the gateway starts refusing well below 25/s |
 
-The countdown deliberately does not poll. Polling the market every second would be about 170,000 requests a day for a number computable from the round's end time.
+No Coinbase calls remain.
 
 ## The macOS app
 

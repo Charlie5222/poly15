@@ -8,6 +8,8 @@
  *      and confident past the breakeven price by a margin.
  *   4. A bet can never lose more than its stake.
  *   5. Small samples are labeled "too few", never a verdict.
+ *   6. The BUY call never calls a price good unless model_edge bet it, and
+ *      while learning it shows the market's odds, not the model's.
  *
  * Offline. No network needed.
  */
@@ -72,21 +74,30 @@ const edgeBets = (made) => made.predictions.filter((p) => p.strategy === 'model_
     assert.strictEqual(edgeBets(made).length, 0, `untrained model bet at noQuote ${no}`);
   }
 
-  // Trained but flat: it reproduces the market exactly, so it has nothing to
-  // disagree with. Must read as uninformative and must not bet.
+  // Trained on rounds where nothing predicts the outcome beyond the market:
+  // it reproduces the market, reads as uninformative and must not bet.
   const flat = freshModel('flat');
-  flat.trained = paper.MIN_TRAINED;
-  for (let i = 0; i < 80; i++) paper.makePredictions(snap({ spot: 80900 + i * 3 }), 12, flat, 10);
+  for (let i = 0; i < paper.MIN_TRAINED + 50; i++) {
+    const s = snap({ spot: 80900 + (i % 70) * 3 });
+    flat.add('f' + i, paper.features(s, 12), 0.5, i % 2, { refit: false });
+  }
+  flat.fit();
+  assert.ok(flat.trained >= paper.MIN_TRAINED);
   assert.strictEqual(flat.isInformative(), false, 'flat model read as informative');
   assert.strictEqual(edgeBets(paper.makePredictions(snap(), 12, flat, 10)).length, 0, 'flat model bet');
 
-  // Trained, informative and confident: takes a cheap side, and only with margin.
+  // Trained on rounds where BTC's side of the line decides the result:
+  // informative and confident, takes a cheap side, and only with margin.
+  const teach = (m, n) => {
+    for (let i = 0; i < n; i++) {
+      const up = i % 2 === 1;
+      const s = snap({ spot: 81000 + (up ? 300 : -300) - 40 + (i % 9) * 10 });
+      m.add('s' + i, paper.features(s, 10), 0.5, up ? 1 : 0, { refit: false });
+    }
+    m.fit();
+  };
   const sharp = freshModel('sharp');
-  sharp.trained = paper.MIN_TRAINED;
-  sharp.w.moveZ = 5;
-  for (let i = 0; i < 80; i++) {
-    paper.makePredictions(snap({ spot: 81000 + (i % 2 ? 300 : -300) }), 10, sharp, 10);
-  }
+  teach(sharp, paper.MIN_TRAINED + 50);
   assert.strictEqual(sharp.isInformative(), true, 'varied model should read as informative');
   const made = paper.makePredictions(snap({ spot: 81300, yesQuote: 0.30, noQuote: 0.71 }), 10, sharp, 10);
   const e = edgeBets(made);
@@ -95,8 +106,9 @@ const edgeBets = (made) => made.predictions.filter((p) => p.strategy === 'model_
   assert.ok(e[0].modelProb > e[0].required + paper.EDGE_MARGIN, 'edge bet without the required margin');
 
   // Same model, fewer rounds: the trained gate alone must stop it.
-  sharp.trained = paper.MIN_TRAINED - 1;
-  const early = paper.makePredictions(snap({ spot: 81300, yesQuote: 0.30, noQuote: 0.71 }), 10, sharp, 10);
+  const young = freshModel('young');
+  teach(young, paper.MIN_TRAINED - 1);
+  const early = paper.makePredictions(snap({ spot: 81300, yesQuote: 0.30, noQuote: 0.71 }), 10, young, 10);
   assert.strictEqual(edgeBets(early).length, 0, 'bet before reaching MIN_TRAINED');
   console.log('betting gates            OK');
 }
@@ -118,6 +130,25 @@ const edgeBets = (made) => made.predictions.filter((p) => p.strategy === 'model_
   const rows = Array.from({ length: 99 }, () => ({ strategy: 'x', price: 0.5, fee: 0.017, stake: 10, won: true, pnl: 9.6 }));
   assert.strictEqual(paper.summarize(rows)[0].verdict, 'too few', '99 bets must read "too few"');
   console.log('honest small-sample label OK');
+}
+
+// 6. The call shown to a person.
+{
+  const bet = (strategy, side, price, x = {}) => ({ strategy, side, price, fee: 0.01, stake: 10, shares: 10 / (price + 0.01), ...x });
+  const fb = bet('follow_book', 'UP', 0.53);
+  const learning = paper.callFrom([bet('model_direction', 'DOWN', 0.49, { modelProb: 0.43, marketProb: 0.52 }), fb], { trained: 19, informative: true });
+  assert.strictEqual(learning.verdict, 'learning');
+  assert.strictEqual(learning.side, 'UP', 'while learning, the call is the market favourite');
+  assert.strictEqual(learning.prob, 0.52, "while learning, the chance shown is the market's");
+  const pricey = paper.callFrom([bet('model_direction', 'UP', 0.95, { modelProb: 0.93, marketProb: 0.94 }), fb], { trained: 500, informative: true });
+  assert.strictEqual(pricey.verdict, 'pricey', 'likely to win is not the same as a good price');
+  const dog = paper.callFrom([bet('model_direction', 'DOWN', 0.7, { modelProb: 0.4, marketProb: 0.7 }),
+    bet('model_edge', 'UP', 0.3, { modelProb: 0.4 })], { trained: 500, informative: true });
+  assert.ok(dog.side === 'DOWN' && dog.verdict === 'pricey' && dog.underdog.side === 'UP', 'underdog value is a note, not the call');
+  const good = paper.callFrom([bet('model_direction', 'UP', 0.68, { modelProb: 0.75, marketProb: 0.68 }),
+    bet('model_edge', 'UP', 0.68, { modelProb: 0.75 })], { trained: 500, informative: true });
+  assert.strictEqual(good.verdict, 'good');
+  console.log('honest BUY call          OK');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

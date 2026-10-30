@@ -13,7 +13,6 @@
  *
  * Deterministic for a given seed range.
  */
-const os = require('os');
 const path = require('path');
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
@@ -31,9 +30,11 @@ function mulberry32(a) {
   };
 }
 
+const REFIT = Number(arg('refit', 25));
+
 function trial(seed, edge) {
   const rng = mulberry32(seed);
-  const m = new paper.Model(path.join(os.tmpdir(), `poly15-power-${process.pid}-${seed}-${edge}.json`));
+  const m = new paper.Model(null);
   for (let i = 0; i < ROUNDS; i++) {
     const ptb = 81000, drift = (rng() - 0.5) * 300, spot = ptb + drift;
     const implied = 0.35 + rng() * 0.30;
@@ -44,9 +45,13 @@ function trial(seed, edge) {
       ts: new Date(Date.UTC(2026, 9, 28) + i * 60000).toISOString(),
     };
     const made = paper.makePredictions(snap, 40, m, 10);
-    m.train(made.features, made.marketProb, rng() < trueP ? 1 : 0);   // outcome drawn after
+    const y = rng() < trueP ? 1 : 0;                                   // outcome drawn after
+    m.recordOutOfSample('r' + i, made.modelProb, made.marketProb, y);
+    // The app refits after every round; every REFIT rounds keeps this quick
+    // and is slightly pessimistic.
+    m.add('r' + i, made.features, made.marketProb, y, { refit: i % REFIT === REFIT - 1 });
   }
-  return { passed: !!m.benchmark().beatsMarket, moveZ: m.w.moveZ };
+  return { passed: !!m.benchmark().beatsMarket, distZ: m.w.distZ };
 }
 
 let hits = 0, falsePos = 0;
