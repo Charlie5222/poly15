@@ -578,7 +578,7 @@ function callFrom(predictions, status) {
   const prob = d.side === 'UP' ? pUp : 1 - pUp;
   const verdict = learning ? 'learning' : e && e.side === d.side ? 'good' : 'pricey';
   return {
-    side: d.side, prob, price: d.price, fee: d.fee, need: d.price + d.fee, stake: d.stake,
+    side: d.side, strategy: d.strategy, prob, price: d.price, fee: d.fee, need: d.price + d.fee, stake: d.stake,
     wins: d.shares - d.stake, verdict, trained: status ? status.trained : null, minTrained: MIN_TRAINED,
     margin: EDGE_MARGIN,
     underdog: e && e.side !== d.side ? { side: e.side, prob: e.modelProb, need: e.price + e.fee } : null,

@@ -113,6 +113,9 @@
   .badge.lock{background:var(--accent-soft); color:var(--accent)}
   .ride .buy{font-size:14px; padding:3px 10px; border-radius:8px}
   .ride .others{margin-top:6px}
+  .tests{margin-top:6px} .tests summary{font-size:11px; color:var(--ink-3); justify-content:flex-start; gap:4px}
+  .tests summary::after{font-size:14px} .tests .bets{margin-top:6px}
+  .callres{font-weight:600}
 
   .hero{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
   @media (max-width:760px){.hero{grid-template-columns:1fr 1fr}}
@@ -253,14 +256,21 @@
       </div>
     </div>
     <div class="card">
-      <h2>Live paper bets</h2>
-      <p class="sub">Each strategy bets the same stake each round. "Needs" is the win rate it must hit to break even at the prices it paid, fee included. A verdict only appears once the result is beyond luck, judged in a way that checking it constantly cannot fool. Faded rows are reference points, not real ideas.</p>
-      <div id="stratTable"></div>
+      <h2>The BUY call</h2>
+      <p class="sub">One pretend $10 bet on the call shown on the Now tab, each time a bet goes on. "Needs" is the win rate it must hit to break even at the prices paid, fee included. A verdict only appears once the result is beyond luck.</p>
+      <div id="callTable"></div>
+      <p class="sub" id="callBt" style="margin-top:10px"></p>
     </div>
     <div class="card">
-      <h2>Backtest: the past four weeks</h2>
-      <p class="sub" id="btSub">The same strategies replayed on Polymarket US's own price records, never peeking ahead.</p>
-      <div id="btTable"></div>
+      <details>
+        <summary><h2>Test strategies</h2></summary>
+        <p class="sub" style="margin-top:12px">Behind the scenes, 11 simple ideas bet every round so the call has something to be measured against. Most are expected to lose; faded rows are reference points, not real ideas.</p>
+        <h3 class="tiny" style="margin:14px 0 6px">Live paper bets</h3>
+        <div id="stratTable"></div>
+        <h3 class="tiny" style="margin:18px 0 6px">Backtest: the past four weeks</h3>
+        <p class="sub" id="btSub">The same strategies replayed on Polymarket US's own price records, never peeking ahead.</p>
+        <div id="btTable"></div>
+      </details>
     </div>
     <div class="card">
       <details>
@@ -340,6 +350,7 @@ const signed = (v, d = 0) => v == null ? '—' : (v > 0 ? '+' : '') + money(v, d
 const pct = (v, d = 0) => v == null || !Number.isFinite(v) ? '—' : (v * 100).toFixed(d) + '%';
 const clamp01 = (v) => Math.max(0, Math.min(1, v || 0));
 const NAMES = {
+  call: 'Every BUY call', call_good: 'Only when marked Good price',
   always_up: 'Always Up', always_down: 'Always Down', follow_book: 'Follow the market', fade_book: 'Bet the underdog',
   momentum: 'Stay the course', fade_move: 'Expect a reversal', late_favorite: 'Late favourite',
   model_direction: 'Model, every round', model_edge: 'Model, only with an edge',
@@ -504,12 +515,12 @@ function renderNow(d) {
     const ups = r.bets.filter((b) => b.side === 'UP').length;
     const callHtml = k ? `<span class="buy ${k.side}${k.verdict === 'good' ? ' edge' : ''}">BUY ${k.side}</span>
         <span class="tiny num" style="margin-left:8px"><b class="${k.side === 'UP' ? 'up' : 'down'}">${chance(k.prob)} likely</b> · pay ${cents(k.need)} · wins ${money(k.wins, 2)}</span>
-        <span style="margin-left:8px">${verdictBadge(k, true)}${underdogBadge(k, true)}</span>` : '';
+        <span style="margin-left:8px">${verdictBadge(k, true)}${underdogBadge(k, true)}</span>` : `<span class="tiny muted">No call: the likelier side had no price left to buy</span>`;
     return `<div class="ride"><div><b>${r.horizon}m · ${r.endMs ? esc(timeOf(r.endMs)) : ''}</b><div class="tiny">bet ${r.entry}s before close</div></div>
       <div>${callHtml}
-      <div class="bets others">${r.bets.map((b) => `<span class="side ${b.side}" title="${esc(nameOf(b.strategy))}: buy ${b.side} at ${(b.price * 100).toFixed(1)}¢">${esc(nameOf(b.strategy))}</span>`).join('')}
-      ${r.maker.map((m) => `<span class="side ${m.side}" style="opacity:${m.filled ? 1 : .45}" title="Limit order to buy ${m.side} at ${(m.bid * 100).toFixed(1)}¢, ${m.filled ? 'filled' : 'not filled yet'}">${esc(nameOf(m.strategy))}${m.filled ? '' : ' …'}</span>`).join('')}</div></div>
-      <div class="tiny num">others: ${ups} Up · ${r.bets.length - ups} Down</div></div>`;
+      <details class="tests"><summary>Test strategies (${r.bets.length + r.maker.length}) · ${ups} Up · ${r.bets.length - ups} Down</summary><div class="bets">${r.bets.map((b) => `<span class="side ${b.side}" title="${esc(nameOf(b.strategy))}: buy ${b.side} at ${(b.price * 100).toFixed(1)}¢">${esc(nameOf(b.strategy))}</span>`).join('')}
+      ${r.maker.map((m) => `<span class="side ${m.side}" style="opacity:${m.filled ? 1 : .45}" title="Limit order to buy ${m.side} at ${(m.bid * 100).toFixed(1)}¢, ${m.filled ? 'filled' : 'not filled yet'}">${esc(nameOf(m.strategy))}${m.filled ? '' : ' …'}</span>`).join('')}</div></details></div>
+      <div></div></div>`;
   }).join('') : '<div class="empty">Nothing riding. Bets go on 2 minutes, 1 minute and 30 seconds before each round closes.</div>';
 
   const bf = d.backfill || {};
@@ -590,14 +601,15 @@ const slugTime = (slug) => {
 async function loadResults() {
   let d;
   try { d = await api(`/api/results?entry=${fEntry}&horizon=${fHorizon}&era=${fEra}`); } catch { return; }
-  const o = d.overall;
+  const ce = d.call?.every;
+  const o = ce ? { n: ce.n, pnl: ce.pnl, staked: ce.staked, winRate: ce.winRate, needed: ce.breakeven, rounds: d.call.rounds } : { n: 0, pnl: 0, staked: 0, winRate: null, needed: null, rounds: d.call?.rounds || 0 };
   tween($('#hPnl'), o.n ? o.pnl : null, (v) => signed(v));
   $('#hPnl').className = 'v num ' + (o.pnl > 0 ? 'up' : o.pnl < 0 ? 'down' : '');
   $('#hRoi').textContent = o.staked ? `${(o.pnl / o.staked * 100).toFixed(1)}¢ per dollar staked` : '';
   tween($('#hWin'), o.winRate, (v) => pct(v, 1));
-  $('#hNeed').textContent = o.needed != null ? `average price paid ${(o.needed * 100).toFixed(0)}¢ incl. fee` : '';
+  $('#hNeed').textContent = o.needed != null ? `needs ${pct(o.needed, 1)} to break even` : '';
   tween($('#hBets'), o.n, (v) => Math.round(v).toLocaleString());
-  $('#hStake').textContent = `${money(d.stake)} each, reference bets left out`;
+  $('#hStake').textContent = `on the BUY call, ${money(d.stake)} each`;
   tween($('#hRounds'), o.rounds, (v) => Math.round(v).toLocaleString());
   const cn = nowData?.corrections;
   const nt = $('#corrNote');
@@ -609,6 +621,9 @@ async function loadResults() {
     nt.hidden = !d.oldBets; nt.className = 'note';
     nt.textContent = `Showing bets placed since the fixes. ${d.oldBets.toLocaleString()} older v1 bets are left out because their prices can't be trusted; "Include v1" shows them.`;
   }
+  $('#callTable').innerHTML = stratTable([d.call?.every, d.call?.good].filter(Boolean), true);
+  const md = d.backtest?.strategies?.find((x) => x.strategy === 'model_direction');
+  $('#callBt').textContent = md ? `Past four weeks, replayed: the model's pick won ${pct(md.winRate, 1)} of ${md.n.toLocaleString()} bets but needed ${pct(md.breakeven, 1)}, so it lost ${(Math.abs(md.roi) * 100).toFixed(1)}¢ per dollar. Winning often is not enough when the price is already high.` : '';
   $('#stratTable').innerHTML = stratTable(d.strategies, false);
   const bt = d.backtest;
   if (!bt) $('#btTable').innerHTML = '<div class="empty">Downloading past rounds. The first time takes about half an hour.</div>';
@@ -616,12 +631,13 @@ async function loadResults() {
     $('#btSub').textContent = `${bt.rounds.toLocaleString()} past rounds, ${new Date(bt.from).toLocaleDateString()} to ${new Date(bt.to).toLocaleDateString()}, replayed on Polymarket US's own prices without peeking ahead. Bets fill at the quoted price, since the old order book isn't kept.`;
     $('#btTable').innerHTML = bt.note ? `<div class="empty">${esc(bt.note)}</div>` : stratTable(bt.strategies, true);
   }
-  $('#recent').innerHTML = d.recent.length ? `<table><thead><tr><th>Round</th><th>Result</th><th>Bets</th><th>Profit</th></tr></thead><tbody>${
+  $('#recent').innerHTML = d.recent.length ? `<table><thead><tr><th>Round</th><th>The call</th><th>Result</th><th>Profit</th></tr></thead><tbody>${
     d.recent.map((r) => {
       const t = slugTime(r.slug);
       return `<tr><td>${r.horizon}m${t ? ' · ' + esc(new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ''}<div class="tiny">bet ${r.entry}s before close</div></td>
-      <td><span class="side ${r.resolvedUp ? 'UP' : 'DOWN'}">${r.resolvedUp ? 'Up' : 'Down'}</span></td>
-      <td class="num">${r.bets.length}</td><td class="num ${r.pnl > 0 ? 'up' : r.pnl < 0 ? 'down' : ''}">${signed(r.pnl)}</td></tr>`;
+      <td>${r.call ? `<span class="side ${r.call.side}">Buy ${r.call.side === 'UP' ? 'Up' : 'Down'}</span> <span class="tiny num">at ${cents(r.call.price + (r.call.fee || 0))}</span>` : '<span class="tiny muted">no call, nothing to buy</span>'}</td>
+      <td>Went ${r.resolvedUp ? 'Up' : 'Down'}${r.call ? ` · <span class="callres ${r.call.won ? 'up' : 'down'}">${r.call.won ? 'won' : 'lost'}</span>` : ''}</td>
+      <td class="num ${r.call?.pnl > 0 ? 'up' : r.call?.pnl < 0 ? 'down' : ''}">${r.call ? signed(r.call.pnl) : '—'}</td></tr>`;
     }).join('')}</tbody></table>` : '<div class="empty">None yet.</div>';
 }
 

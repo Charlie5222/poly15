@@ -412,7 +412,21 @@ function apiResults(entry, horizon, era = 'new') {
     if (!byRound.has(k)) byRound.set(k, []);
     byRound.get(k).push(r);
   }
-  const recent = [...byRound.values()].slice(-25).reverse().map((list) => ({
+  // The BUY call's own bet each round: the strategy the call was built from,
+  // and separately the rounds where it was marked Good price (model_edge, same side).
+  const callRows = [], goodRows = [], callOf = new Map();
+  for (const [k, list] of byRound) {
+    const rec = store.preds.get(k);
+    const c = rec && paper.callFrom(rec.predictions || [], statusOf(rec));
+    if (!c) continue;
+    const mine = list.find((b) => b.strategy === c.strategy);
+    if (mine) { callRows.push({ ...mine, strategy: 'call' }); callOf.set(k, mine); }
+    const good = list.find((b) => b.strategy === 'model_edge' && b.side === c.side);
+    if (good) goodRows.push({ ...good, strategy: 'call_good' });
+  }
+  const callSum = paper.summarize([...callRows, ...goodRows]);
+  const recent = [...byRound.entries()].slice(-25).reverse().map(([k, list]) => ({
+    call: callOf.has(k) ? (({ side, price, fee, won, pnl }) => ({ side, price, fee, won, pnl }))(callOf.get(k)) : null,
     slug: list[0].slug, horizon: list[0].horizon, entry: list[0].entry, resolvedUp: list[0].resolvedUp,
     pnl: list.filter((b) => b.filled !== false && !paper.BASELINES.has(b.strategy)).reduce((a, b) => a + b.pnl, 0),
     bets: list.filter((b) => b.filled !== false).map((b) => ({ strategy: b.strategy, side: b.side, price: b.price, won: b.won, pnl: b.pnl })),
@@ -433,6 +447,11 @@ function apiResults(entry, horizon, era = 'new') {
       winRate: real.length ? real.filter((r) => r.won).length / real.length : null,
       needed: real.length ? real.reduce((a, r) => a + r.price + (r.fee || 0), 0) / real.length : null,
       rounds: new Set(rows.map((r) => r.slug)).size,
+    },
+    call: {
+      every: callSum.find((x) => x.strategy === 'call') || null,
+      good: callSum.find((x) => x.strategy === 'call_good') || null,
+      rounds: new Set(callRows.map((r) => r.slug)).size,
     },
     strategies: sum, recent, backtest: bt,
   };
